@@ -13,8 +13,9 @@ Sistema de manejo de inventario con interfaz web y API REST.
 |---|---|
 | **Categorías** | Crear, editar y eliminar (no deja borrar categorías con productos). |
 | **Productos** | CRUD con SKU único, precio, stock mínimo y categoría. Búsqueda por nombre/SKU y filtros por categoría y stock bajo. |
-| **Movimientos** | Entradas (+), salidas (−) y ajustes por conteo físico. Cada movimiento guarda stock anterior y nuevo. No permite sacar más de lo que hay. |
-| **Resumen** | Total de productos, unidades, valor del inventario y lista de productos con stock bajo. |
+| **Ventas** | Registrar ventas (descuentan stock y guardan el precio cobrado). Pantalla con filtros por fecha (hoy, 7 días, 30 días, este mes, todo o rango) y producto, total vendido, número de ventas, unidades, ticket promedio, gráfico por día/mes, productos más vendidos y detalle. |
+| **Movimientos** | Entradas (+), salidas (−), ajustes por conteo físico y ventas. Cada movimiento guarda stock anterior y nuevo. No permite sacar más de lo que hay. |
+| **Resumen** | Ventas de hoy, total de productos, unidades, valor del inventario y lista de productos con stock bajo. |
 
 > El stock de un producto **solo cambia con movimientos**, así siempre queda historial de cada unidad que entra o sale.
 
@@ -71,7 +72,8 @@ npm run test:e2e   # pruebas de la API completa (base en memoria)
 | PATCH | `/api/products/:id` | Edita producto (no el stock) |
 | DELETE | `/api/products/:id` | Elimina producto y su historial |
 | GET | `/api/movements?productId=&type=&limit=` | Historial de movimientos |
-| POST | `/api/movements` | Registra movimiento `{ productId, type: IN\|OUT\|ADJUST, quantity, reason }` |
+| POST | `/api/movements` | Registra movimiento `{ productId, type: IN\|OUT\|ADJUST\|SALE, quantity, unitPrice?, reason }` |
+| GET | `/api/sales?from=&to=&productId=` | Reporte de ventas: totales, productos más vendidos y detalle (`from`/`to` en ISO 8601) |
 
 ## Estructura
 

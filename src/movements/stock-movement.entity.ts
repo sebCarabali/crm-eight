@@ -8,6 +8,8 @@ export enum MovementType {
   OUT = 'OUT',
   /** Ajuste por conteo físico: el stock queda exactamente en la cantidad indicada. */
   ADJUST = 'ADJUST',
+  /** Venta: resta del stock como una salida y guarda el precio unitario cobrado. */
+  SALE = 'SALE',
 }
 
 @Entity('stock_movements')
@@ -29,6 +31,10 @@ export class StockMovement {
 
   @Column({ type: 'integer' })
   newStock: number;
+
+  /** Precio unitario cobrado (solo ventas). Se congela al momento de la venta. */
+  @Column({ type: 'real', nullable: true })
+  unitPrice: number | null;
 
   @Column({ type: 'text', nullable: true })
   reason: string | null;

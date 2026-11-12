@@ -150,6 +150,40 @@ dialog label { display: flex; flex-direction: column; gap: 4px; font-size: 13px;
 .error { color: var(--danger); margin: 0; min-height: 1em; }
 .hint { color: var(--muted); margin: -4px 0 0; font-size: 12px; }
 
+/* ---------- Ventas ---------- */
+.segmented { display: inline-flex; border: 1px solid var(--border); border-radius: 6px; overflow: hidden; background: var(--surface); }
+.segmented button { border: none; border-radius: 0; border-right: 1px solid var(--border); padding: 8px 12px; color: var(--muted); }
+.segmented button:last-child { border-right: none; }
+.segmented button.active { background: var(--primary); color: #fff; }
+label.inline { display: flex; align-items: center; gap: 6px; color: var(--muted); font-size: 13px; }
+label.inline input { width: auto; }
+
+.grid-2 { display: grid; grid-template-columns: 3fr 2fr; gap: 16px; margin-top: 16px; }
+@media (max-width: 860px) { .grid-2 { grid-template-columns: 1fr; } }
+.panel { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 4px 16px 16px; }
+.panel h2 { margin: 14px 0 12px; }
+.panel table { border: none; }
+table.compact th, table.compact td { padding: 8px 6px; }
+
+.bar-chart { display: flex; align-items: flex-end; gap: 4px; height: 200px; padding-top: 18px; border-bottom: 1px solid var(--border); }
+.bar-chart .bar-col { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: flex-end; height: 100%; min-width: 0; position: relative; }
+.bar-chart .bar { width: 100%; max-width: 36px; background: var(--primary); border-radius: 4px 4px 0 0; min-height: 2px; transition: background .15s; }
+.bar-chart .bar.zero { background: var(--border); }
+.bar-chart .bar-col:hover .bar { background: var(--primary-hover); }
+.bar-chart .bar-col .tip {
+  display: none; position: absolute; bottom: 100%; margin-bottom: 4px; white-space: nowrap;
+  background: var(--header-bg); color: #fff; font-size: 12px; padding: 4px 8px; border-radius: 4px; z-index: 2;
+}
+.bar-chart .bar-col:hover .tip { display: block; }
+.bar-labels { display: flex; gap: 4px; margin-top: 6px; }
+.bar-labels span { flex: 1; display: flex; justify-content: center; font-size: 11px; color: var(--muted); min-width: 0; overflow: visible; white-space: nowrap; }
+.show-more { display: block; margin: 12px auto 0; }
+.chart-empty { color: var(--muted); text-align: center; align-self: center; width: 100%; }
+
+.badge.SALE { background: var(--primary); color: #fff; }
+.total-preview { font-size: 20px; font-weight: 600; color: var(--primary-hover); padding: 6px 0; }
+.money { font-variant-numeric: tabular-nums; }
+
 .toast {
   position: fixed;
   bottom: 24px;

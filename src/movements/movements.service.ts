@@ -3,7 +3,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { DataSource, Repository } from 'typeorm';
 import { Product } from '../products/product.entity';
 import { CreateMovementDto, MovementQueryDto } from './movement.dto';
-import { StockMovement } from './stock-movement.entity';
+import { MovementType, StockMovement } from './stock-movement.entity';
 import { computeNewStock } from './stock-rules';
 
 @Injectable()
@@ -44,6 +44,7 @@ export class MovementsService {
           quantity: dto.quantity,
           previousStock,
           newStock,
+          unitPrice: dto.type === MovementType.SALE ? (dto.unitPrice ?? product.price) : null,
           reason: dto.reason?.trim() || null,
         }),
       );

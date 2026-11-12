@@ -11,7 +11,14 @@ export function computeNewStock(current: number, type: MovementType, quantity: n
       if (quantity === 0) throw new BadRequestException('La cantidad de entrada debe ser mayor a 0');
       return current + quantity;
     case MovementType.OUT:
-      if (quantity === 0) throw new BadRequestException('La cantidad de salida debe ser mayor a 0');
+    case MovementType.SALE:
+      if (quantity === 0) {
+        throw new BadRequestException(
+          type === MovementType.SALE
+            ? 'La cantidad vendida debe ser mayor a 0'
+            : 'La cantidad de salida debe ser mayor a 0',
+        );
+      }
       if (quantity > current) {
         throw new BadRequestException(
           `Stock insuficiente: hay ${current} unidad(es) y se intenta retirar ${quantity}`,

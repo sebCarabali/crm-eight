@@ -4,6 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Inventario</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📦</text></svg>" />
   <link rel="stylesheet" href="styles.css" />
 </head>
 <body>
@@ -11,6 +12,7 @@
     <h1>📦 Inventario</h1>
     <nav class="tabs">
       <button data-tab="dashboard" class="active">Resumen</button>
+      <button data-tab="sales">Ventas</button>
       <button data-tab="products">Productos</button>
       <button data-tab="categories">Categorías</button>
       <button data-tab="movements">Movimientos</button>
@@ -22,6 +24,7 @@
     <!-- RESUMEN -->
     <section id="tab-dashboard" class="tab active">
       <div class="cards">
+        <div class="card"><span>Ventas de hoy</span><strong id="sum-sales-today">$0</strong></div>
         <div class="card"><span>Productos</span><strong id="sum-products">0</strong></div>
         <div class="card"><span>Unidades en stock</span><strong id="sum-units">0</strong></div>
         <div class="card"><span>Valor del inventario</span><strong id="sum-value">$0</strong></div>
@@ -32,6 +35,53 @@
         <thead><tr><th>SKU</th><th>Producto</th><th>Stock</th><th>Mínimo</th><th></th></tr></thead>
         <tbody id="low-stock-body"></tbody>
       </table>
+    </section>
+
+    <!-- VENTAS -->
+    <section id="tab-sales" class="tab">
+      <div class="toolbar">
+        <div class="segmented" id="sales-presets">
+          <button data-preset="today">Hoy</button>
+          <button data-preset="7d">7 días</button>
+          <button data-preset="30d" class="active">30 días</button>
+          <button data-preset="month">Este mes</button>
+          <button data-preset="all">Todo</button>
+        </div>
+        <label class="inline">Desde <input type="date" id="sales-from" /></label>
+        <label class="inline">Hasta <input type="date" id="sales-to" /></label>
+        <select id="sales-product-filter"><option value="">Todos los productos</option></select>
+        <button class="primary" id="new-sale-btn">+ Nueva venta</button>
+      </div>
+
+      <div class="cards">
+        <div class="card"><span>Total vendido</span><strong id="sales-revenue">$0</strong></div>
+        <div class="card"><span>Número de ventas</span><strong id="sales-count">0</strong></div>
+        <div class="card"><span>Unidades vendidas</span><strong id="sales-units">0</strong></div>
+        <div class="card"><span>Ticket promedio</span><strong id="sales-avg">$0</strong></div>
+      </div>
+
+      <div class="grid-2">
+        <div class="panel">
+          <h2 id="sales-chart-title">Ventas por día</h2>
+          <div class="bar-chart" id="sales-chart"></div>
+        </div>
+        <div class="panel">
+          <h2>Productos más vendidos</h2>
+          <table class="compact">
+            <thead><tr><th>Producto</th><th class="num">Unid.</th><th class="num">Total</th></tr></thead>
+            <tbody id="top-products-body"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <h2>Detalle de ventas</h2>
+      <table>
+        <thead>
+          <tr><th>Fecha</th><th>Producto</th><th class="num">Cantidad</th><th class="num">Precio unit.</th><th class="num">Total</th><th>Nota</th></tr>
+        </thead>
+        <tbody id="sales-body"></tbody>
+      </table>
+      <button class="show-more" id="sales-more" hidden>Mostrar más</button>
     </section>
 
     <!-- PRODUCTOS -->
@@ -71,6 +121,7 @@
           <option value="IN">Entradas</option>
           <option value="OUT">Salidas</option>
           <option value="ADJUST">Ajustes</option>
+          <option value="SALE">Ventas</option>
         </select>
         <button class="primary" id="new-movement-btn">+ Registrar movimiento</button>
       </div>
@@ -125,20 +176,25 @@
   <!-- Modal movimiento -->
   <dialog id="movement-dialog">
     <form id="movement-form" method="dialog">
-      <h3>Registrar movimiento</h3>
+      <h3 id="movement-dialog-title">Registrar movimiento</h3>
       <label>Producto <select name="productId" required></select></label>
       <div class="row">
         <label>Tipo
           <select name="type">
+            <option value="SALE">Venta (−)</option>
             <option value="IN">Entrada (+)</option>
-            <option value="OUT">Salida (−)</option>
+            <option value="OUT">Salida (−) sin venta</option>
             <option value="ADJUST">Ajuste (conteo físico)</option>
           </select>
         </label>
         <label><span id="quantity-label">Cantidad</span> <input name="quantity" type="number" min="0" step="1" required /></label>
       </div>
+      <div class="row" id="sale-fields">
+        <label>Precio unitario <input name="unitPrice" type="number" min="0" step="0.01" /></label>
+        <label>Total de la venta <output id="sale-total" class="total-preview">$0</output></label>
+      </div>
       <p class="hint" id="movement-hint"></p>
-      <label>Motivo <input name="reason" maxlength="255" placeholder="Ej: compra, venta, merma…" /></label>
+      <label><span id="reason-label">Motivo</span> <input name="reason" maxlength="255" placeholder="Ej: compra, merma, cliente…" /></label>
       <p class="error" id="movement-error"></p>
       <div class="actions">
         <button type="button" data-close>Cancelar</button>

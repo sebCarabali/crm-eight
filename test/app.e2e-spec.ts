@@ -78,6 +78,44 @@ describe('Inventario (e2e)', () => {
     expect(res.body[0].type).toBe('OUT');
   });
 
+  it('registra una venta con el precio actual del producto', async () => {
+    const res = await request(app.getHttpServer())
+      .post('/api/movements')
+      .send({ productId, type: 'SALE', quantity: 1 })
+      .expect(201);
+    expect(res.body.newStock).toBe(1);
+    expect(res.body.unitPrice).toBe(1000);
+  });
+
+  it('registra una venta con precio especial', async () => {
+    const res = await request(app.getHttpServer())
+      .post('/api/movements')
+      .send({ productId, type: 'SALE', quantity: 1, unitPrice: 900 })
+      .expect(201);
+    expect(res.body.newStock).toBe(0);
+    expect(res.body.unitPrice).toBe(900);
+  });
+
+  it('no permite vender sin stock', () =>
+    request(app.getHttpServer())
+      .post('/api/movements')
+      .send({ productId, type: 'SALE', quantity: 1 })
+      .expect(400));
+
+  it('reporta las ventas con totales', async () => {
+    const res = await request(app.getHttpServer()).get('/api/sales').expect(200);
+    expect(res.body.totals).toEqual({ revenue: 1900, units: 2, count: 2, averageTicket: 950 });
+    expect(res.body.sales).toHaveLength(2);
+    expect(res.body.topProducts[0]).toMatchObject({ sku: 'LAP-001', units: 2, revenue: 1900 });
+  });
+
+  it('filtra las ventas por fecha', async () => {
+    const future = new Date(Date.now() + 86_400_000).toISOString();
+    const res = await request(app.getHttpServer()).get(`/api/sales?from=${future}`).expect(200);
+    expect(res.body.totals.count).toBe(0);
+    await request(app.getHttpServer()).get('/api/sales?from=ayer').expect(400);
+  });
+
   it('no permite borrar una categoría con productos', () =>
     request(app.getHttpServer()).delete(`/api/categories/${categoryId}`).expect(409));
 

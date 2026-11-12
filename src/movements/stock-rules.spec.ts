@@ -19,6 +19,12 @@ describe('computeNewStock', () => {
     expect(() => computeNewStock(2, MovementType.OUT, 3)).toThrow(BadRequestException);
   });
 
+  it('una venta resta del stock y no puede superarlo', () => {
+    expect(computeNewStock(10, MovementType.SALE, 4)).toBe(6);
+    expect(() => computeNewStock(2, MovementType.SALE, 3)).toThrow(BadRequestException);
+    expect(() => computeNewStock(2, MovementType.SALE, 0)).toThrow(BadRequestException);
+  });
+
   it('el ajuste fija el stock contado', () => {
     expect(computeNewStock(10, MovementType.ADJUST, 7)).toBe(7);
     expect(computeNewStock(10, MovementType.ADJUST, 0)).toBe(0);

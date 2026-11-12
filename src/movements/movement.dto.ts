@@ -1,6 +1,15 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
-import { IsEnum, IsInt, IsOptional, IsString, MaxLength, Min } from 'class-validator';
+import {
+  IsDateString,
+  IsEnum,
+  IsInt,
+  IsNumber,
+  IsOptional,
+  IsString,
+  MaxLength,
+  Min,
+} from 'class-validator';
 import { MovementType } from './stock-movement.entity';
 
 export class CreateMovementDto {
@@ -20,11 +29,38 @@ export class CreateMovementDto {
   @Min(0)
   quantity: number;
 
+  @ApiPropertyOptional({
+    example: 2500,
+    description: 'Solo para ventas (SALE). Si no se envía, se usa el precio actual del producto.',
+  })
+  @IsOptional()
+  @IsNumber({ maxDecimalPlaces: 2 })
+  @Min(0)
+  unitPrice?: number;
+
   @ApiPropertyOptional({ example: 'Compra a proveedor' })
   @IsOptional()
   @IsString()
   @MaxLength(255)
   reason?: string;
+}
+
+export class SalesQueryDto {
+  @ApiPropertyOptional({ description: 'Desde (fecha/hora ISO 8601, inclusive)', example: '2026-11-01T05:00:00.000Z' })
+  @IsOptional()
+  @IsDateString()
+  from?: string;
+
+  @ApiPropertyOptional({ description: 'Hasta (fecha/hora ISO 8601, exclusiva)', example: '2026-12-01T05:00:00.000Z' })
+  @IsOptional()
+  @IsDateString()
+  to?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  productId?: number;
 }
 
 export class MovementQueryDto {
