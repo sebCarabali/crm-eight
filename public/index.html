@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Inventario</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <header class="topbar">
+    <h1>📦 Inventario</h1>
+    <nav class="tabs">
+      <button data-tab="dashboard" class="active">Resumen</button>
+      <button data-tab="products">Productos</button>
+      <button data-tab="categories">Categorías</button>
+      <button data-tab="movements">Movimientos</button>
+    </nav>
+    <a class="docs-link" href="/docs" target="_blank">API</a>
+  </header>
+
+  <main>
+    <!-- RESUMEN -->
+    <section id="tab-dashboard" class="tab active">
+      <div class="cards">
+        <div class="card"><span>Productos</span><strong id="sum-products">0</strong></div>
+        <div class="card"><span>Unidades en stock</span><strong id="sum-units">0</strong></div>
+        <div class="card"><span>Valor del inventario</span><strong id="sum-value">$0</strong></div>
+        <div class="card warn"><span>Con stock bajo</span><strong id="sum-low">0</strong></div>
+      </div>
+      <h2>Productos con stock bajo</h2>
+      <table>
+        <thead><tr><th>SKU</th><th>Producto</th><th>Stock</th><th>Mínimo</th><th></th></tr></thead>
+        <tbody id="low-stock-body"></tbody>
+      </table>
+    </section>
+
+    <!-- PRODUCTOS -->
+    <section id="tab-products" class="tab">
+      <div class="toolbar">
+        <input id="product-search" type="search" placeholder="Buscar por nombre o SKU…" />
+        <select id="product-category-filter"><option value="">Todas las categorías</option></select>
+        <label class="check"><input id="product-low-filter" type="checkbox" /> Solo stock bajo</label>
+        <button class="primary" id="new-product-btn">+ Nuevo producto</button>
+      </div>
+      <table>
+        <thead>
+          <tr><th>SKU</th><th>Nombre</th><th>Categoría</th><th class="num">Precio</th><th class="num">Stock</th><th class="num">Mín.</th><th></th></tr>
+        </thead>
+        <tbody id="products-body"></tbody>
+      </table>
+    </section>
+
+    <!-- CATEGORÍAS -->
+    <section id="tab-categories" class="tab">
+      <div class="toolbar">
+        <span></span>
+        <button class="primary" id="new-category-btn">+ Nueva categoría</button>
+      </div>
+      <table>
+        <thead><tr><th>Nombre</th><th>Descripción</th><th class="num">Productos</th><th></th></tr></thead>
+        <tbody id="categories-body"></tbody>
+      </table>
+    </section>
+
+    <!-- MOVIMIENTOS -->
+    <section id="tab-movements" class="tab">
+      <div class="toolbar">
+        <select id="movement-product-filter"><option value="">Todos los productos</option></select>
+        <select id="movement-type-filter">
+          <option value="">Todos los tipos</option>
+          <option value="IN">Entradas</option>
+          <option value="OUT">Salidas</option>
+          <option value="ADJUST">Ajustes</option>
+        </select>
+        <button class="primary" id="new-movement-btn">+ Registrar movimiento</button>
+      </div>
+      <table>
+        <thead>
+          <tr><th>Fecha</th><th>Producto</th><th>Tipo</th><th class="num">Cantidad</th><th class="num">Antes</th><th class="num">Después</th><th>Motivo</th></tr>
+        </thead>
+        <tbody id="movements-body"></tbody>
+      </table>
+    </section>
+  </main>
+
+  <!-- Modal producto -->
+  <dialog id="product-dialog">
+    <form id="product-form" method="dialog">
+      <h3 id="product-dialog-title">Nuevo producto</h3>
+      <input type="hidden" name="id" />
+      <label>SKU <input name="sku" required maxlength="50" /></label>
+      <label>Nombre <input name="name" required maxlength="150" /></label>
+      <label>Descripción <textarea name="description" rows="2"></textarea></label>
+      <div class="row">
+        <label>Precio <input name="price" type="number" min="0" step="0.01" required /></label>
+        <label>Stock mínimo <input name="minStock" type="number" min="0" step="1" value="0" /></label>
+      </div>
+      <div class="row">
+        <label>Categoría <select name="categoryId"><option value="">(Sin categoría)</option></select></label>
+        <label id="initial-stock-field">Stock inicial <input name="initialStock" type="number" min="0" step="1" value="0" /></label>
+      </div>
+      <p class="error" id="product-error"></p>
+      <div class="actions">
+        <button type="button" data-close>Cancelar</button>
+        <button class="primary" type="submit">Guardar</button>
+      </div>
+    </form>
+  </dialog>
+
+  <!-- Modal categoría -->
+  <dialog id="category-dialog">
+    <form id="category-form" method="dialog">
+      <h3 id="category-dialog-title">Nueva categoría</h3>
+      <input type="hidden" name="id" />
+      <label>Nombre <input name="name" required maxlength="100" /></label>
+      <label>Descripción <textarea name="description" rows="2"></textarea></label>
+      <p class="error" id="category-error"></p>
+      <div class="actions">
+        <button type="button" data-close>Cancelar</button>
+        <button class="primary" type="submit">Guardar</button>
+      </div>
+    </form>
+  </dialog>
+
+  <!-- Modal movimiento -->
+  <dialog id="movement-dialog">
+    <form id="movement-form" method="dialog">
+      <h3>Registrar movimiento</h3>
+      <label>Producto <select name="productId" required></select></label>
+      <div class="row">
+        <label>Tipo
+          <select name="type">
+            <option value="IN">Entrada (+)</option>
+            <option value="OUT">Salida (−)</option>
+            <option value="ADJUST">Ajuste (conteo físico)</option>
+          </select>
+        </label>
+        <label><span id="quantity-label">Cantidad</span> <input name="quantity" type="number" min="0" step="1" required /></label>
+      </div>
+      <p class="hint" id="movement-hint"></p>
+      <label>Motivo <input name="reason" maxlength="255" placeholder="Ej: compra, venta, merma…" /></label>
+      <p class="error" id="movement-error"></p>
+      <div class="actions">
+        <button type="button" data-close>Cancelar</button>
+        <button class="primary" type="submit">Registrar</button>
+      </div>
+    </form>
+  </dialog>
+
+  <div id="toast" class="toast"></div>
+  <script src="app.js"></script>
+</body>
+</html>
