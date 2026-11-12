@@ -6,6 +6,9 @@ import { CreateMovementDto, MovementQueryDto } from './movement.dto';
 import { MovementType, StockMovement } from './stock-movement.entity';
 import { computeNewStock } from './stock-rules';
 
+/** Movimientos que cuentan como venta y guardan el precio unitario: ventas y salidas. */
+export const PRICED_TYPES: MovementType[] = [MovementType.SALE, MovementType.OUT];
+
 @Injectable()
 export class MovementsService {
   constructor(
@@ -44,7 +47,7 @@ export class MovementsService {
           quantity: dto.quantity,
           previousStock,
           newStock,
-          unitPrice: dto.type === MovementType.SALE ? (dto.unitPrice ?? product.price) : null,
+          unitPrice: PRICED_TYPES.includes(dto.type) ? (dto.unitPrice ?? product.price) : null,
           reason: dto.reason?.trim() || null,
         }),
       );

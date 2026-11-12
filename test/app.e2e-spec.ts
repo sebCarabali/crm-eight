@@ -3,6 +3,7 @@ import { Test } from '@nestjs/testing';
 import request from 'supertest';
 
 process.env.DB_PATH = ':memory:';
+process.env.SEED = 'false';
 
 // eslint-disable-next-line @typescript-eslint/no-var-requires
 const { AppModule } = require('../src/app.module');
@@ -102,11 +103,12 @@ describe('Inventario (e2e)', () => {
       .send({ productId, type: 'SALE', quantity: 1 })
       .expect(400));
 
-  it('reporta las ventas con totales', async () => {
+  it('reporta ventas y salidas con totales', async () => {
     const res = await request(app.getHttpServer()).get('/api/sales').expect(200);
-    expect(res.body.totals).toEqual({ revenue: 1900, units: 2, count: 2, averageTicket: 950 });
-    expect(res.body.sales).toHaveLength(2);
-    expect(res.body.topProducts[0]).toMatchObject({ sku: 'LAP-001', units: 2, revenue: 1900 });
+    // 1 salida de 3 × 1000 + venta de 1 × 1000 + venta de 1 × 900
+    expect(res.body.totals).toEqual({ revenue: 4900, units: 5, count: 3, averageTicket: 1633.33 });
+    expect(res.body.sales.map((s: { type: string }) => s.type)).toEqual(['SALE', 'SALE', 'OUT']);
+    expect(res.body.topProducts[0]).toMatchObject({ sku: 'LAP-001', units: 5, revenue: 4900 });
   });
 
   it('filtra las ventas por fecha', async () => {

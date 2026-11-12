@@ -31,7 +31,7 @@ export class CreateMovementDto {
 
   @ApiPropertyOptional({
     example: 2500,
-    description: 'Solo para ventas (SALE). Si no se envía, se usa el precio actual del producto.',
+    description: 'Para ventas (SALE) y salidas (OUT). Si no se envía, se usa el precio actual del producto.',
   })
   @IsOptional()
   @IsNumber({ maxDecimalPlaces: 2 })

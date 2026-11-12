@@ -9,6 +9,7 @@
     "start": "nest start",
     "dev": "nest start --watch",
     "start:prod": "node dist/main",
+    "db:reset": "node -e \"require('fs').rmSync('data', { recursive: true, force: true }); console.log('Base de datos borrada: al arrancar se cargan de nuevo los datos de prueba')\"",
     "test": "jest",
     "test:e2e": "jest --config ./test/jest-e2e.json"
   },

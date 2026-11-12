@@ -32,7 +32,7 @@ export class StockMovement {
   @Column({ type: 'integer' })
   newStock: number;
 
-  /** Precio unitario cobrado (solo ventas). Se congela al momento de la venta. */
+  /** Precio unitario (ventas y salidas). Se congela al momento del movimiento. */
   @Column({ type: 'real', nullable: true })
   unitPrice: number | null;
 

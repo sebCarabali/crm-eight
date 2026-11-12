@@ -2,10 +2,12 @@ import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { SalesQueryDto } from './movement.dto';
+import { PRICED_TYPES } from './movements.service';
 import { MovementType, StockMovement } from './stock-movement.entity';
 
 export interface SaleRow {
   id: number;
+  type: MovementType;
   createdAt: Date;
   product: { id: number; sku: string; name: string };
   quantity: number;
@@ -36,12 +38,15 @@ export class SalesService {
     @InjectRepository(StockMovement) private readonly movements: Repository<StockMovement>,
   ) {}
 
-  /** Ventas en un rango de fechas con totales y productos más vendidos. */
+  /**
+   * Ventas en un rango de fechas con totales y productos más vendidos.
+   * Incluye las ventas (SALE) y las salidas de productos (OUT).
+   */
   async report(query: SalesQueryDto = {}): Promise<SalesReport> {
     const qb = this.movements
       .createQueryBuilder('m')
       .leftJoinAndSelect('m.product', 'p')
-      .where('m.type = :type', { type: MovementType.SALE })
+      .where('m.type IN (:...types)', { types: PRICED_TYPES })
       .orderBy('m.createdAt', 'DESC')
       .addOrderBy('m.id', 'DESC');
     if (query.productId) qb.andWhere('p.id = :pid', { pid: query.productId });
@@ -56,9 +61,11 @@ export class SalesService {
     });
 
     const sales: SaleRow[] = rows.map((m) => {
-      const unitPrice = m.unitPrice ?? 0;
+      // Salidas antiguas sin precio guardado: se valoran al precio actual del producto.
+      const unitPrice = m.unitPrice ?? m.product.price;
       return {
         id: m.id,
+        type: m.type,
         createdAt: m.createdAt,
         product: { id: m.product.id, sku: m.product.sku, name: m.product.name },
         quantity: m.quantity,

@@ -55,7 +55,7 @@
 
       <div class="cards">
         <div class="card"><span>Total vendido</span><strong id="sales-revenue">$0</strong></div>
-        <div class="card"><span>Número de ventas</span><strong id="sales-count">0</strong></div>
+        <div class="card"><span>Ventas y salidas</span><strong id="sales-count">0</strong></div>
         <div class="card"><span>Unidades vendidas</span><strong id="sales-units">0</strong></div>
         <div class="card"><span>Ticket promedio</span><strong id="sales-avg">$0</strong></div>
       </div>
@@ -74,10 +74,10 @@
         </div>
       </div>
 
-      <h2>Detalle de ventas</h2>
+      <h2>Detalle de ventas y salidas</h2>
       <table>
         <thead>
-          <tr><th>Fecha</th><th>Producto</th><th class="num">Cantidad</th><th class="num">Precio unit.</th><th class="num">Total</th><th>Nota</th></tr>
+          <tr><th>Fecha</th><th>Tipo</th><th>Producto</th><th class="num">Cantidad</th><th class="num">Precio unit.</th><th class="num">Total</th><th>Nota</th></tr>
         </thead>
         <tbody id="sales-body"></tbody>
       </table>
@@ -183,7 +183,7 @@
           <select name="type">
             <option value="SALE">Venta (−)</option>
             <option value="IN">Entrada (+)</option>
-            <option value="OUT">Salida (−) sin venta</option>
+            <option value="OUT">Salida (−)</option>
             <option value="ADJUST">Ajuste (conteo físico)</option>
           </select>
         </label>
@@ -191,7 +191,7 @@
       </div>
       <div class="row" id="sale-fields">
         <label>Precio unitario <input name="unitPrice" type="number" min="0" step="0.01" /></label>
-        <label>Total de la venta <output id="sale-total" class="total-preview">$0</output></label>
+        <label><span id="sale-total-label">Total de la venta</span> <output id="sale-total" class="total-preview">$0</output></label>
       </div>
       <p class="hint" id="movement-hint"></p>
       <label><span id="reason-label">Motivo</span> <input name="reason" maxlength="255" placeholder="Ej: compra, merma, cliente…" /></label>

@@ -190,6 +190,7 @@ function renderSalesRows() {
         .map(
           (s) => `<tr>
             <td>${dateFmt.format(new Date(s.createdAt))}</td>
+            <td><span class="badge ${s.type}">${TYPE_LABEL[s.type]}</span></td>
             <td><span class="sku">${esc(s.product.sku)}</span> ${esc(s.product.name)}</td>
             <td class="num">${s.quantity}</td>
             <td class="num">${money.format(s.unitPrice)}</td>
@@ -198,7 +199,7 @@ function renderSalesRows() {
           </tr>`,
         )
         .join('')
-    : emptyRow(6, 'No hay ventas en este periodo. Registra una con “+ Nueva venta”.');
+    : emptyRow(7, 'No hay ventas ni salidas en este periodo. Registra una con “+ Nueva venta”.');
 }
 
 /** Gráfico de barras por día (o por mes si el rango es largo). */
@@ -458,7 +459,7 @@ async function loadMovements() {
             <td class="num">${TYPE_SIGN[m.type]}${m.quantity}</td>
             <td class="num">${m.previousStock}</td>
             <td class="num">${m.newStock}</td>
-            <td>${esc(m.reason ?? '')}${m.type === 'SALE' && m.unitPrice != null ? ` <span class="sku">(${money.format(m.unitPrice * m.quantity)})</span>` : ''}</td>
+            <td>${esc(m.reason ?? '')}${m.unitPrice != null ? ` <span class="sku">(${money.format(m.unitPrice * m.quantity)})</span>` : ''}</td>
           </tr>`,
         )
         .join('')
@@ -496,13 +497,15 @@ function updateMovementHint(resetPrice = false) {
   const type = form.type.value;
   const isAdjust = type === 'ADJUST';
   const isSale = type === 'SALE';
-  $('#movement-dialog-title').textContent = isSale ? 'Nueva venta' : 'Registrar movimiento';
+  const priced = type === 'SALE' || type === 'OUT'; // ventas y salidas cuentan en el reporte de ventas
+  $('#movement-dialog-title').textContent = isSale ? 'Nueva venta' : type === 'OUT' ? 'Registrar salida' : 'Registrar movimiento';
   $('#quantity-label').textContent = isAdjust ? 'Stock contado' : 'Cantidad';
   $('#reason-label').textContent = isSale ? 'Nota (cliente, factura…)' : 'Motivo';
-  $('#sale-fields').style.display = isSale ? '' : 'none';
-  form.unitPrice.required = isSale;
+  $('#sale-total-label').textContent = isSale ? 'Total de la venta' : 'Total de la salida';
+  $('#sale-fields').style.display = priced ? '' : 'none';
+  form.unitPrice.required = priced;
   form.quantity.min = isAdjust ? 0 : 1;
-  if (isSale && product && (resetPrice || form.unitPrice.value === '')) form.unitPrice.value = product.price;
+  if (priced && product && (resetPrice || form.unitPrice.value === '')) form.unitPrice.value = product.price;
   $('#movement-hint').textContent = product
     ? `Stock actual: ${product.stock}` + (isAdjust ? ' — el stock quedará en la cantidad contada.' : '')
     : '';
@@ -529,10 +532,10 @@ $('#movement-form').addEventListener('submit', async (e) => {
     quantity: Number(f.quantity.value),
     reason: f.reason.value.trim() || undefined,
   };
-  if (body.type === 'SALE') body.unitPrice = Number(f.unitPrice.value);
+  if (body.type === 'SALE' || body.type === 'OUT') body.unitPrice = Number(f.unitPrice.value);
   try {
     const m = await api('/movements', { method: 'POST', body });
-    const extra = m.type === 'SALE' ? ` por ${money.format(m.unitPrice * m.quantity)}` : '';
+    const extra = m.unitPrice != null ? ` por ${money.format(m.unitPrice * m.quantity)}` : '';
     toast(`${TYPE_DONE[m.type]}${extra}. Nuevo stock: ${m.newStock}`);
     $('#movement-dialog').close();
     const active = document.querySelector('.tabs button.active').dataset.tab;

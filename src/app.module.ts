@@ -8,6 +8,7 @@ import { MovementsModule } from './movements/movements.module';
 import { StockMovement } from './movements/stock-movement.entity';
 import { Product } from './products/product.entity';
 import { ProductsModule } from './products/products.module';
+import { SeedModule } from './seed/seed.module';
 
 /**
  * Base de datos SQLite en WebAssembly (sql.js): no requiere módulos nativos,
@@ -38,6 +39,7 @@ function databaseLocation(): string | undefined {
     CategoriesModule,
     ProductsModule,
     MovementsModule,
+    SeedModule,
   ],
 })
 export class AppModule {}

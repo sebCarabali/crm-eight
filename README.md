@@ -13,11 +13,24 @@ Sistema de manejo de inventario con interfaz web y API REST.
 |---|---|
 | **Categorías** | Crear, editar y eliminar (no deja borrar categorías con productos). |
 | **Productos** | CRUD con SKU único, precio, stock mínimo y categoría. Búsqueda por nombre/SKU y filtros por categoría y stock bajo. |
-| **Ventas** | Registrar ventas (descuentan stock y guardan el precio cobrado). Pantalla con filtros por fecha (hoy, 7 días, 30 días, este mes, todo o rango) y producto, total vendido, número de ventas, unidades, ticket promedio, gráfico por día/mes, productos más vendidos y detalle. |
+| **Ventas** | Registrar ventas (descuentan stock y guardan el precio cobrado). Las **salidas** también cuentan como ventas y aparecen en esta pantalla. Filtros por fecha (hoy, 7 días, 30 días, este mes, todo o rango) y producto, total vendido, número de ventas, unidades, ticket promedio, gráfico por día/mes, productos más vendidos y detalle. |
 | **Movimientos** | Entradas (+), salidas (−), ajustes por conteo físico y ventas. Cada movimiento guarda stock anterior y nuevo. No permite sacar más de lo que hay. |
 | **Resumen** | Ventas de hoy, total de productos, unidades, valor del inventario y lista de productos con stock bajo. |
 
 > El stock de un producto **solo cambia con movimientos**, así siempre queda historial de cada unidad que entra o sale.
+
+## Datos de prueba: tienda de barrio colombiana
+
+La primera vez que arranca (con la base vacía) se cargan automáticamente:
+
+- **14 categorías**: Bebidas, Lácteos y huevos, Panadería, Granos y abarrotes, Café y chocolate, Enlatados y conservas, Carnes frías, Mecato y paquetes, Dulces y galletas, Condimentos y salsas, Frutas y verduras, Aseo del hogar, Aseo personal, Cervezas y licores.
+- **73 productos** típicos (Coca-Cola, Pony Malta, leche Alquería, pandebono, arroz Diana, panela, café Sello Rojo, Chocoramo, Bon Bon Bum, Jabón Rey, cerveza Águila…) con precios de referencia en pesos.
+- **Un mes de historial**: unas 1.000 ventas y salidas entre 7 a. m. y 9 p. m. (más movimiento en fines de semana y quincena), compras a proveedor y algunos ajustes. Varios productos quedan en stock bajo.
+
+Los datos se generan con una semilla fija, así que siempre salen iguales. Se definen en `src/seed/seed-data.ts`.
+
+- Para **volver a empezar** con los datos de prueba: `npm run db:reset` y arrancar de nuevo.
+- Para **no cargar** datos de prueba: `SEED=false npm run dev`.
 
 ## Abrir en StackBlitz
 
@@ -49,6 +62,7 @@ Los datos se guardan en `data/inventario.sqlite`. Variables opcionales:
 
 - `PORT` — puerto (por defecto `3000`)
 - `DB_PATH` — ruta del archivo SQLite, o `:memory:` para no guardar nada
+- `SEED` — `false` para no cargar los datos de prueba
 
 ## Pruebas
 
@@ -73,7 +87,7 @@ npm run test:e2e   # pruebas de la API completa (base en memoria)
 | DELETE | `/api/products/:id` | Elimina producto y su historial |
 | GET | `/api/movements?productId=&type=&limit=` | Historial de movimientos |
 | POST | `/api/movements` | Registra movimiento `{ productId, type: IN\|OUT\|ADJUST\|SALE, quantity, unitPrice?, reason }` |
-| GET | `/api/sales?from=&to=&productId=` | Reporte de ventas: totales, productos más vendidos y detalle (`from`/`to` en ISO 8601) |
+| GET | `/api/sales?from=&to=&productId=` | Reporte de ventas y salidas: totales, productos más vendidos y detalle (`from`/`to` en ISO 8601) |
 
 ## Estructura
 
@@ -83,7 +97,8 @@ src/
   app.module.ts           conexión a la base de datos
   categories/             entidad, DTOs, servicio y controlador de categorías
   products/               entidad, DTOs, servicio y controlador de productos
-  movements/              movimientos de stock y reglas de negocio (stock-rules.ts)
+  movements/              movimientos de stock, reporte de ventas y reglas de negocio (stock-rules.ts)
+  seed/                   datos de prueba de la tienda (seed-data.ts) y su carga automática
 public/                   interfaz web (index.html, app.js, styles.css)
 test/                     pruebas e2e
 ```
