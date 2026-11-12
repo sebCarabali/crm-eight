@@ -1,14 +1,20 @@
 :root {
-  --bg: #f5f6f8;
+  /* Paleta verde y gris */
+  --bg: #f3f4f3;
   --surface: #fff;
-  --text: #1f2430;
-  --muted: #6b7280;
-  --border: #e3e5ea;
-  --primary: #2563eb;
-  --primary-hover: #1d4ed8;
-  --danger: #dc2626;
-  --warn: #d97706;
-  --ok: #059669;
+  --text: #1f2522;
+  --muted: #6b726e;
+  --border: #dfe3e0;
+  --header-bg: #2b312e;
+  --header-text: #e7ebe8;
+  --header-muted: #a3aca7;
+  --primary: #2f8f4e;
+  --primary-hover: #25743f;
+  --primary-soft: #e3f2e7;
+  --focus: #b7dcc2;
+  --danger: #c0392b;
+  --warn: #c27c0e;
+  --ok: #2f8f4e;
   --radius: 8px;
 }
 
@@ -27,8 +33,9 @@ body {
   align-items: center;
   gap: 24px;
   padding: 12px 24px;
-  background: var(--surface);
-  border-bottom: 1px solid var(--border);
+  background: var(--header-bg);
+  color: var(--header-text);
+  border-bottom: 3px solid var(--primary);
   position: sticky;
   top: 0;
   z-index: 5;
@@ -41,12 +48,13 @@ body {
   padding: 8px 14px;
   border-radius: var(--radius);
   cursor: pointer;
-  color: var(--muted);
+  color: var(--header-muted);
   font-weight: 500;
 }
-.tabs button:hover { background: var(--bg); }
-.tabs button.active { background: #e8efff; color: var(--primary); }
-.docs-link { color: var(--muted); text-decoration: none; font-size: 13px; }
+.tabs button:hover { background: rgba(255, 255, 255, .08); color: var(--header-text); }
+.tabs button.active { background: var(--primary); color: #fff; }
+.docs-link { color: var(--header-muted); text-decoration: none; font-size: 13px; }
+.docs-link:hover { color: #fff; }
 
 main { max-width: 1200px; margin: 0 auto; padding: 24px; }
 .tab { display: none; }
@@ -58,11 +66,13 @@ h2 { font-size: 15px; margin: 28px 0 12px; }
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: var(--radius);
+  border-left: 4px solid var(--primary);
   padding: 16px;
   display: flex;
   flex-direction: column;
   gap: 6px;
 }
+.card.warn { border-left-color: var(--warn); }
 .card span { color: var(--muted); font-size: 13px; }
 .card strong { font-size: 24px; font-variant-numeric: tabular-nums; }
 .card.warn strong { color: var(--warn); }
@@ -83,7 +93,8 @@ input, select, textarea {
 }
 .toolbar input, .toolbar select { width: auto; }
 .check input { width: auto; }
-input:focus, select:focus, textarea:focus { outline: 2px solid #bfd3ff; border-color: var(--primary); }
+input:focus, select:focus, textarea:focus { outline: 2px solid var(--focus); border-color: var(--primary); }
+input[type='checkbox'] { accent-color: var(--primary); }
 
 button {
   font: inherit;
@@ -108,7 +119,8 @@ table {
   overflow: hidden;
 }
 th, td { padding: 10px 12px; text-align: left; border-bottom: 1px solid var(--border); }
-th { background: #fafbfc; font-weight: 600; color: var(--muted); font-size: 12px; text-transform: uppercase; letter-spacing: .03em; }
+tbody tr:hover { background: #f7f9f7; }
+th { background: #eef1ef; font-weight: 600; color: var(--muted); font-size: 12px; text-transform: uppercase; letter-spacing: .03em; }
 tr:last-child td { border-bottom: none; }
 .num { text-align: right; font-variant-numeric: tabular-nums; }
 td.actions-cell { text-align: right; white-space: nowrap; }
@@ -116,9 +128,9 @@ td.actions-cell { text-align: right; white-space: nowrap; }
 .sku { font-family: ui-monospace, Menlo, monospace; font-size: 13px; color: var(--muted); }
 
 .badge { display: inline-block; padding: 2px 8px; border-radius: 999px; font-size: 12px; font-weight: 600; }
-.badge.IN { background: #d1fae5; color: var(--ok); }
-.badge.OUT { background: #fee2e2; color: var(--danger); }
-.badge.ADJUST { background: #fef3c7; color: var(--warn); }
+.badge.IN { background: var(--primary-soft); color: var(--ok); }
+.badge.OUT { background: #f8e1de; color: var(--danger); }
+.badge.ADJUST { background: #e6e9e7; color: #4b524e; }
 .low { color: var(--warn); font-weight: 600; }
 
 dialog {
@@ -128,7 +140,8 @@ dialog {
   width: min(520px, 92vw);
   box-shadow: 0 20px 50px rgba(0, 0, 0, .2);
 }
-dialog::backdrop { background: rgba(15, 23, 42, .4); }
+dialog::backdrop { background: rgba(31, 37, 34, .45); }
+dialog h3 { color: var(--primary-hover); }
 dialog form { padding: 22px; display: flex; flex-direction: column; gap: 12px; }
 dialog h3 { margin: 0 0 4px; }
 dialog label { display: flex; flex-direction: column; gap: 4px; font-size: 13px; color: var(--muted); }
@@ -141,7 +154,8 @@ dialog label { display: flex; flex-direction: column; gap: 4px; font-size: 13px;
   position: fixed;
   bottom: 24px;
   right: 24px;
-  background: #111827;
+  background: var(--header-bg);
+  border-left: 4px solid var(--primary);
   color: #fff;
   padding: 10px 16px;
   border-radius: var(--radius);
