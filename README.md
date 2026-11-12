@@ -76,6 +76,15 @@ El servidor revisa cada minuto: si ya pasó la hora configurada y las alertas de
 
 El "sugerido pedir" es lo que falta para llegar al doble del stock mínimo.
 
+## Datos técnicos en el log
+
+Las pantallas muestran solo lo que necesita quien atiende la tienda. El detalle técnico queda en el log:
+
+- **Navegador** (Herramientas de desarrollador → Consola, grupos `[Inventario]`): SKU, stock antes y después de cada movimiento, precio unitario de los movimientos, stock que tenía cada producto al generar la alerta y hora de generación.
+- **Servidor**: generación de alertas con el detalle por producto (stock al generar, mínimo y nivel) y la dirección de la documentación de la API (`/docs`).
+
+El SKU solo se muestra en la pantalla de Productos, donde se administra. Toda esta información sigue disponible en la API.
+
 ## Pruebas
 
 ```bash

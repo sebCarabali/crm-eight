@@ -2,7 +2,7 @@
 
 const state = { categories: [], products: [] };
 
-const money = new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 2 });
+const money = new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 });
 const dateFmt = new Intl.DateTimeFormat('es-CO', { dateStyle: 'short', timeStyle: 'short' });
 const TYPE_LABEL = { IN: 'Entrada', OUT: 'Salida', ADJUST: 'Ajuste', SALE: 'Venta' };
 const TYPE_DONE = { IN: 'Entrada registrada', OUT: 'Salida registrada', ADJUST: 'Ajuste registrado', SALE: 'Venta registrada' };
@@ -37,6 +37,17 @@ function toast(message) {
   toast.timer = setTimeout(() => el.classList.remove('show'), 2500);
 }
 
+/**
+ * Datos de detalle que no se muestran en pantalla pero quedan en el log del navegador
+ * (Herramientas de desarrollador → Consola), por si se necesitan para revisar algo.
+ */
+function logData(title, rows) {
+  if (!rows || !rows.length) return;
+  console.groupCollapsed(`[Inventario] ${title} (${rows.length})`);
+  console.table(rows);
+  console.groupEnd();
+}
+
 function emptyRow(cols, text) {
   return `<tr><td colspan="${cols}" class="empty">${text}</td></tr>`;
 }
@@ -66,8 +77,8 @@ async function refreshCategories() {
 
 async function refreshProductOptions() {
   state.products = await api('/products');
-  const opts = state.products.map((p) => `<option value="${p.id}">${esc(p.sku)} — ${esc(p.name)} (stock: ${p.stock})</option>`).join('');
-  const simpleOpts = state.products.map((p) => `<option value="${p.id}">${esc(p.sku)} — ${esc(p.name)}</option>`).join('');
+  const opts = state.products.map((p) => `<option value="${p.id}">${esc(p.name)}</option>`).join('');
+  const simpleOpts = opts;
   for (const sel of ['#movement-product-filter', '#sales-product-filter']) {
     const filter = $(sel);
     const current = filter.value;
@@ -108,13 +119,13 @@ async function loadDashboard() {
     ? s.lowStock
         .map(
           (p) => `<tr>
-            <td class="sku">${esc(p.sku)}</td><td>${esc(p.name)}</td>
-            <td class="low">${p.stock}</td><td>${p.minStock}</td>
+            <td>${esc(p.name)}</td>
+            <td class="num low">${p.stock}</td><td class="num">${p.minStock}</td>
             <td class="actions-cell"><button class="link" data-restock="${p.id}">Registrar entrada</button></td>
           </tr>`,
         )
         .join('')
-    : emptyRow(5, 'Todo en orden: ningún producto está por debajo del mínimo 🎉');
+    : emptyRow(4, 'Todo en orden: ningún producto está por debajo del mínimo 🎉');
 }
 
 $('#low-stock-body').addEventListener('click', (e) => {
@@ -164,7 +175,7 @@ async function loadSales() {
     ? topProducts
         .map(
           (t) => `<tr>
-            <td><span class="sku">${esc(t.sku)}</span> ${esc(t.name)}</td>
+            <td>${esc(t.name)}</td>
             <td class="num">${t.units}</td>
             <td class="num">${money.format(t.revenue)}</td>
           </tr>`,
@@ -172,6 +183,10 @@ async function loadSales() {
         .join('')
     : emptyRow(3, 'Sin ventas en este periodo');
 
+  logData(
+    'Ventas y salidas: detalle técnico',
+    sales.map((s) => ({ id: s.id, fecha: s.createdAt, tipo: s.type, sku: s.product.sku, producto: s.product.name, cantidad: s.quantity, precio: s.unitPrice, total: s.total })),
+  );
   state.sales = sales;
   state.salesShown = SALES_PAGE;
   renderSalesRows();
@@ -191,7 +206,7 @@ function renderSalesRows() {
           (s) => `<tr>
             <td>${dateFmt.format(new Date(s.createdAt))}</td>
             <td><span class="badge ${s.type}">${TYPE_LABEL[s.type]}</span></td>
-            <td><span class="sku">${esc(s.product.sku)}</span> ${esc(s.product.name)}</td>
+            <td>${esc(s.product.name)}</td>
             <td class="num">${s.quantity}</td>
             <td class="num">${money.format(s.unitPrice)}</td>
             <td class="num"><strong>${money.format(s.total)}</strong></td>
@@ -311,10 +326,14 @@ async function loadAlerts() {
 
   $('#alerts-title').textContent = isToday ? 'Alertas de hoy' : `Alertas del ${keyToDate(data.date).toLocaleDateString('es-CO', { weekday: 'long', day: 'numeric', month: 'long' })}`;
   const hourText = new Date(2000, 0, 1, data.hour).toLocaleTimeString('es-CO', { hour: 'numeric', minute: '2-digit' });
-  const generated = data.generatedAt
-    ? `Generadas: ${dateFmt.format(new Date(data.generatedAt))}`
-    : 'Todavía no se han generado';
-  $('#alerts-subtitle').textContent = `Productos con stock menor o igual al mínimo + ${data.margin}. Se generan todos los días a las ${hourText} · ${generated}`;
+  $('#alerts-subtitle').textContent = `Productos a ${data.margin} unidades o menos de su stock mínimo. Se revisan todos los días a las ${hourText}`;
+
+  // Detalle técnico (hora de generación, stock al generar, SKU): solo en el log.
+  console.info(`[Inventario] Alertas del ${data.date}: generadas ${data.generatedAt ?? '(aún no)'}, margen ${data.margin}, hora ${data.hour}:00`);
+  logData(
+    `Alertas del ${data.date}: detalle`,
+    data.alerts.map((a) => ({ id: a.id, sku: a.product.sku, producto: a.product.name, nivel: a.level, stockAlGenerar: a.stock, stockActual: a.currentStock, minimo: a.minStock, sugerido: a.suggestedOrder, atendida: a.resolved })),
+  );
   $('#alerts-generate-btn').hidden = !isToday;
 
   // Días anteriores
@@ -338,18 +357,17 @@ async function loadAlerts() {
     ? 'Todas las alertas de este día están atendidas ✔'
     : data.generatedAt
       ? 'Sin alertas: ningún producto está cerca del mínimo 🎉'
-      : 'Las alertas de este día aún no se han generado.';
+      : `Las alertas de este día se revisan a las ${hourText}.`;
 
   $('#alerts-body').innerHTML = rows.length
     ? rows
         .map(
           (a) => `<tr class="${a.resolved ? 'resolved' : ''}">
             <td><span class="badge ${a.level}">${ALERT_LABEL[a.level]}</span></td>
-            <td><span class="sku">${esc(a.product.sku)}</span> ${esc(a.product.name)}</td>
+            <td>${esc(a.product.name)}</td>
             <td>${esc(a.product.category ?? '—')}</td>
-            <td class="num">${a.stock}</td>
+            <td class="num">${a.currentStock}</td>
             <td class="num">${a.minStock}</td>
-            <td class="num ${a.currentStock > a.stock ? 'stock-up' : ''}">${a.currentStock}</td>
             <td class="num">${a.suggestedOrder || '—'}</td>
             <td class="actions-cell">
               ${a.resolved
@@ -360,7 +378,7 @@ async function loadAlerts() {
           </tr>`,
         )
         .join('')
-    : emptyRow(8, emptyText);
+    : emptyRow(7, emptyText);
 
   refreshAlertsBadge().catch(() => {});
 }
@@ -575,21 +593,25 @@ async function loadMovements() {
   if ($('#movement-product-filter').value) params.set('productId', $('#movement-product-filter').value);
   if ($('#movement-type-filter').value) params.set('type', $('#movement-type-filter').value);
   const movements = await api(`/movements?${params}`);
+  // Stock anterior, SKU y precio unitario quedan en el log; en pantalla solo lo necesario.
+  logData(
+    'Movimientos: detalle técnico',
+    movements.map((m) => ({ id: m.id, fecha: m.createdAt, sku: m.product.sku, producto: m.product.name, tipo: m.type, cantidad: m.quantity, stockAntes: m.previousStock, stockDespues: m.newStock, precioUnitario: m.unitPrice })),
+  );
   $('#movements-body').innerHTML = movements.length
     ? movements
         .map(
           (m) => `<tr>
             <td>${dateFmt.format(new Date(m.createdAt))}</td>
-            <td><span class="sku">${esc(m.product.sku)}</span> ${esc(m.product.name)}</td>
+            <td>${esc(m.product.name)}</td>
             <td><span class="badge ${m.type}">${TYPE_LABEL[m.type]}</span></td>
             <td class="num">${TYPE_SIGN[m.type]}${m.quantity}</td>
-            <td class="num">${m.previousStock}</td>
             <td class="num">${m.newStock}</td>
-            <td>${esc(m.reason ?? '')}${m.unitPrice != null ? ` <span class="sku">(${money.format(m.unitPrice * m.quantity)})</span>` : ''}</td>
+            <td>${esc(m.reason ?? '')}</td>
           </tr>`,
         )
         .join('')
-    : emptyRow(7, 'Sin movimientos registrados.');
+    : emptyRow(6, 'Sin movimientos registrados.');
 }
 
 $('#movement-product-filter').addEventListener('change', loadMovements);

@@ -18,7 +18,6 @@
       <button data-tab="categories">Categorías</button>
       <button data-tab="movements">Movimientos</button>
     </nav>
-    <a class="docs-link" href="/docs" target="_blank">API</a>
   </header>
 
   <main>
@@ -37,7 +36,7 @@
       </div>
       <h2>Productos con stock bajo</h2>
       <table>
-        <thead><tr><th>SKU</th><th>Producto</th><th>Stock</th><th>Mínimo</th><th></th></tr></thead>
+        <thead><tr><th>Producto</th><th class="num">Stock</th><th class="num">Mínimo</th><th></th></tr></thead>
         <tbody id="low-stock-body"></tbody>
       </table>
     </section>
@@ -115,8 +114,7 @@
         <thead>
           <tr>
             <th>Nivel</th><th>Producto</th><th>Categoría</th>
-            <th class="num">Stock al generar</th><th class="num">Mínimo</th><th class="num">Stock actual</th>
-            <th class="num">Sugerido pedir</th><th></th>
+            <th class="num">Stock</th><th class="num">Mínimo</th><th class="num">Sugerido pedir</th><th></th>
           </tr>
         </thead>
         <tbody id="alerts-body"></tbody>
@@ -166,7 +164,7 @@
       </div>
       <table>
         <thead>
-          <tr><th>Fecha</th><th>Producto</th><th>Tipo</th><th class="num">Cantidad</th><th class="num">Antes</th><th class="num">Después</th><th>Motivo</th></tr>
+          <tr><th>Fecha</th><th>Producto</th><th>Tipo</th><th class="num">Cantidad</th><th class="num">Stock final</th><th>Motivo</th></tr>
         </thead>
         <tbody id="movements-body"></tbody>
       </table>

@@ -75,8 +75,7 @@ export class AlertsService implements OnApplicationBootstrap, OnModuleDestroy {
       const today = storeDateKey(now);
       if (storeHour(now) < this.hour) return;
       if (await this.runs.existsBy({ date: today })) return;
-      const { counts } = await this.generate(today);
-      this.logger.log(`Alertas del ${today}: ${counts.total} producto(s) cerca o por debajo del mínimo`);
+      await this.generate(today);
     } catch (err) {
       this.logger.error(`No se pudieron generar las alertas: ${(err as Error).message}`);
     }
@@ -95,6 +94,7 @@ export class AlertsService implements OnApplicationBootstrap, OnModuleDestroy {
     opts: { stockAt?: Map<number, number>; resolvedFor?: (productId: number) => boolean; generatedAt?: Date } = {},
   ) {
     const { stockAt, resolvedFor, generatedAt = new Date() } = opts;
+    const details: string[] = [];
     await this.dataSource.transaction(async (em) => {
       const products = await em.find(Product);
       const existing = await em.find(StockAlert, { where: { date } });
@@ -111,6 +111,7 @@ export class AlertsService implements OnApplicationBootstrap, OnModuleDestroy {
         Object.assign(alert, { level, stock, minStock: p.minStock, margin: this.margin });
         if (resolvedFor) alert.resolved = resolvedFor(p.id);
         await em.save(alert);
+        details.push(`${p.sku} ${p.name}: stock al generar ${stock}, mínimo ${p.minStock} → ${level}`);
       }
 
       // Productos que ya no requieren alerta: se quitan, salvo las ya atendidas (quedan de historial).
@@ -119,6 +120,12 @@ export class AlertsService implements OnApplicationBootstrap, OnModuleDestroy {
 
       await em.save(AlertRun, { date, generatedAt, count: keep.size });
     });
+    // Detalle técnico solo en el log del servidor (no se muestra en pantalla).
+    // En la reconstrucción del historial (stockAt) se omite para no llenar el log.
+    if (!stockAt) {
+      this.logger.log(`Alertas del ${date} generadas ${generatedAt.toISOString()} (margen ${this.margin}): ${details.length}`);
+      details.forEach((line) => this.logger.debug(`  ${line}`));
+    }
     return this.findByDate(date);
   }
 
