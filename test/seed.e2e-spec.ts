@@ -53,10 +53,17 @@ describe('Datos de prueba (e2e)', () => {
     expect(res.body.sales.every((s: { createdAt: string }) => new Date(s.createdAt).getTime() <= Date.now())).toBe(true);
   });
 
+  it('genera el historial de alertas de la última semana', async () => {
+    const days = (await request(app.getHttpServer()).get('/api/alerts/days').expect(200)).body;
+    // 7 días anteriores (+ hoy, si ya pasó la hora de las alertas)
+    expect(days.length).toBeGreaterThanOrEqual(7);
+    expect(days.some((d: { total: number }) => d.total > 0)).toBe(true);
+  });
+
   it('no vuelve a cargar datos si la base ya tiene productos', async () => {
     const seeder = app.get(require('../src/seed/seed.service').SeedService);
     const before = (await request(app.getHttpServer()).get('/api/products').expect(200)).body.length;
-    await seeder.onApplicationBootstrap();
+    await seeder.onModuleInit();
     const after = (await request(app.getHttpServer()).get('/api/products').expect(200)).body.length;
     expect(after).toBe(before);
   });

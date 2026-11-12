@@ -4,6 +4,7 @@ import request from 'supertest';
 
 process.env.DB_PATH = ':memory:';
 process.env.SEED = 'false';
+process.env.ALERTS_AUTO = 'false';
 
 // eslint-disable-next-line @typescript-eslint/no-var-requires
 const { AppModule } = require('../src/app.module');

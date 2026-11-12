@@ -1,5 +1,7 @@
-import { Injectable, Logger, OnApplicationBootstrap } from '@nestjs/common';
+import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import { DataSource, EntityManager } from 'typeorm';
+import { AlertsService } from '../alerts/alerts.service';
+import { DAY_MS as DAY, HOUR_MS as HOUR, storeOffsetMs } from '../common/store-time';
 import { Category } from '../categories/category.entity';
 import { MovementType, StockMovement } from '../movements/stock-movement.entity';
 import { Product } from '../products/product.entity';
@@ -17,10 +19,7 @@ function mulberry32(seed: number) {
 }
 
 const DAYS_OF_HISTORY = 30;
-/** Hora de Colombia (UTC-5) para que las ventas caigan en horario de tienda. */
-const STORE_UTC_OFFSET_HOURS = -5;
-const HOUR = 3_600_000;
-const DAY = 24 * HOUR;
+const ALERT_HISTORY_DAYS = 7;
 
 type NewMovement = Omit<StockMovement, 'id' | 'product'> & { product: { id: number } };
 
@@ -31,18 +30,24 @@ type NewMovement = Omit<StockMovement, 'id' | 'product'> & { product: { id: numb
  * Desactivar con SEED=false.
  */
 @Injectable()
-export class SeedService implements OnApplicationBootstrap {
+export class SeedService implements OnModuleInit {
   private readonly logger = new Logger(SeedService.name);
 
-  constructor(private readonly dataSource: DataSource) {}
+  constructor(
+    private readonly dataSource: DataSource,
+    private readonly alerts: AlertsService,
+  ) {}
 
-  async onApplicationBootstrap() {
+  /** Se ejecuta antes de que arranque la programación de alertas (onApplicationBootstrap). */
+  async onModuleInit() {
     if (process.env.SEED === 'false') return;
     const count = await this.dataSource.getRepository(Product).count();
     if (count > 0) return;
     const summary = await this.seed();
+    // Historial de alertas de la última semana, reconstruido a partir de los movimientos.
+    await this.alerts.backfill(ALERT_HISTORY_DAYS);
     this.logger.log(
-      `Datos de prueba cargados: ${summary.categories} categorías, ${summary.products} productos, ${summary.movements} movimientos`,
+      `Datos de prueba cargados: ${summary.categories} categorías, ${summary.products} productos, ${summary.movements} movimientos, alertas de ${ALERT_HISTORY_DAYS} días`,
     );
   }
 
@@ -56,7 +61,7 @@ export class SeedService implements OnApplicationBootstrap {
     const between = (min: number, max: number) => min + Math.floor(rand() * (max - min + 1));
 
     // Medianoche de hoy en hora de Colombia, expresada en UTC.
-    const offset = STORE_UTC_OFFSET_HOURS * HOUR;
+    const offset = storeOffsetMs(); // hora de Colombia: las ventas caen en horario de tienda
     const localNow = now.getTime() + offset;
     const todayStart = localNow - (localNow % DAY) - offset;
     const historyStart = new Date(todayStart - (DAYS_OF_HISTORY + 1) * DAY + 6 * HOUR);

@@ -1,6 +1,7 @@
 import { ConflictException, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { DataSource, Repository } from 'typeorm';
+import { StockAlert } from '../alerts/stock-alert.entity';
 import { CategoriesService } from '../categories/categories.service';
 import { MovementType, StockMovement } from '../movements/stock-movement.entity';
 import { CreateProductDto, ProductQueryDto, UpdateProductDto } from './product.dto';
@@ -94,12 +95,9 @@ export class ProductsService {
   async remove(id: number): Promise<void> {
     const product = await this.findOne(id);
     await this.dataSource.transaction(async (em) => {
-      await em
-        .createQueryBuilder()
-        .delete()
-        .from(StockMovement)
-        .where('productId = :id', { id })
-        .execute();
+      for (const table of [StockMovement, StockAlert]) {
+        await em.createQueryBuilder().delete().from(table).where('productId = :id', { id }).execute();
+      }
       await em.remove(product);
     });
   }

@@ -2,6 +2,8 @@ import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { mkdirSync } from 'fs';
 import { dirname } from 'path';
+import { AlertsModule } from './alerts/alerts.module';
+import { AlertRun, StockAlert } from './alerts/stock-alert.entity';
 import { CategoriesModule } from './categories/categories.module';
 import { Category } from './categories/category.entity';
 import { MovementsModule } from './movements/movements.module';
@@ -31,7 +33,7 @@ function databaseLocation(): string | undefined {
           type: 'sqljs' as const,
           location,
           autoSave: Boolean(location),
-          entities: [Category, Product, StockMovement],
+          entities: [Category, Product, StockMovement, StockAlert, AlertRun],
           synchronize: true,
         };
       },
@@ -39,6 +41,7 @@ function databaseLocation(): string | undefined {
     CategoriesModule,
     ProductsModule,
     MovementsModule,
+    AlertsModule,
     SeedModule,
   ],
 })

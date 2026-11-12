@@ -13,6 +13,7 @@
     <nav class="tabs">
       <button data-tab="dashboard" class="active">Resumen</button>
       <button data-tab="sales">Ventas</button>
+      <button data-tab="alerts">Alertas <span class="nav-badge" id="alerts-badge" hidden>0</span></button>
       <button data-tab="products">Productos</button>
       <button data-tab="categories">Categorías</button>
       <button data-tab="movements">Movimientos</button>
@@ -23,6 +24,10 @@
   <main>
     <!-- RESUMEN -->
     <section id="tab-dashboard" class="tab active">
+      <div class="alert-banner" id="dashboard-alert-banner" hidden>
+        <span>🔔 <strong id="banner-count">0</strong> alerta(s) de stock pendientes hoy: productos a 2 unidades o menos de su mínimo.</span>
+        <button class="primary" data-goto="alerts">Ver alertas</button>
+      </div>
       <div class="cards">
         <div class="card"><span>Ventas de hoy</span><strong id="sum-sales-today">$0</strong></div>
         <div class="card"><span>Productos</span><strong id="sum-products">0</strong></div>
@@ -82,6 +87,40 @@
         <tbody id="sales-body"></tbody>
       </table>
       <button class="show-more" id="sales-more" hidden>Mostrar más</button>
+    </section>
+
+    <!-- ALERTAS -->
+    <section id="tab-alerts" class="tab">
+      <div class="alerts-header">
+        <div>
+          <h2 id="alerts-title">Alertas de hoy</h2>
+          <p class="hint" id="alerts-subtitle"></p>
+        </div>
+        <div class="toolbar-actions">
+          <label class="check"><input id="alerts-hide-resolved" type="checkbox" /> Ocultar atendidas</label>
+          <button id="alerts-generate-btn">↻ Actualizar ahora</button>
+        </div>
+      </div>
+
+      <div class="day-chips" id="alerts-days"></div>
+
+      <div class="cards">
+        <div class="card"><span>Pendientes</span><strong id="alerts-pending">0</strong></div>
+        <div class="card danger"><span>Agotados</span><strong id="alerts-out">0</strong></div>
+        <div class="card warn"><span>Bajo el mínimo</span><strong id="alerts-below">0</strong></div>
+        <div class="card info"><span>Cerca del mínimo (≤ +2)</span><strong id="alerts-near">0</strong></div>
+      </div>
+
+      <table class="alerts-table">
+        <thead>
+          <tr>
+            <th>Nivel</th><th>Producto</th><th>Categoría</th>
+            <th class="num">Stock al generar</th><th class="num">Mínimo</th><th class="num">Stock actual</th>
+            <th class="num">Sugerido pedir</th><th></th>
+          </tr>
+        </thead>
+        <tbody id="alerts-body"></tbody>
+      </table>
     </section>
 
     <!-- PRODUCTOS -->

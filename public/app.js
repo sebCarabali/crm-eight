@@ -49,7 +49,7 @@ document.querySelectorAll('.tabs button').forEach((btn) => {
 function showTab(name) {
   document.querySelectorAll('.tabs button').forEach((b) => b.classList.toggle('active', b.dataset.tab === name));
   document.querySelectorAll('.tab').forEach((t) => t.classList.toggle('active', t.id === `tab-${name}`));
-  const loaders = { dashboard: loadDashboard, sales: loadSales, products: loadProducts, categories: loadCategories, movements: loadMovements };
+  const loaders = { dashboard: loadDashboard, sales: loadSales, alerts: loadAlerts, products: loadProducts, categories: loadCategories, movements: loadMovements };
   loaders[name]().catch((err) => toast(err.message));
 }
 
@@ -278,6 +278,132 @@ $('#sales-more').addEventListener('click', () => {
 });
 $('#new-sale-btn').addEventListener('click', () => openMovementDialog(null, 'SALE'));
 
+// ---------- Alertas diarias ----------
+const ALERT_LABEL = { OUT_OF_STOCK: 'Agotado', BELOW_MIN: 'Bajo el mínimo', NEAR_MIN: 'Cerca del mínimo' };
+
+function keyToDate(key) {
+  const [y, m, d] = key.split('-').map(Number);
+  return new Date(y, m - 1, d);
+}
+
+function dayLabel(key, today) {
+  if (key === today) return 'Hoy';
+  if (toInputDate(addDays(keyToDate(today), -1)) === key) return 'Ayer';
+  return keyToDate(key).toLocaleDateString('es-CO', { weekday: 'short', day: 'numeric', month: 'short' });
+}
+
+/** Contador de alertas pendientes de hoy (menú y aviso del resumen). */
+async function refreshAlertsBadge() {
+  const data = await api('/alerts');
+  const pending = data.counts.pending;
+  const badge = $('#alerts-badge');
+  badge.hidden = pending === 0;
+  badge.textContent = pending;
+  $('#dashboard-alert-banner').hidden = pending === 0;
+  $('#banner-count').textContent = pending;
+}
+
+async function loadAlerts() {
+  const days = await api('/alerts/days?limit=14');
+  const query = state.alertsDate ? `?date=${state.alertsDate}` : '';
+  const data = await api(`/alerts${query}`);
+  const isToday = data.date === data.today;
+
+  $('#alerts-title').textContent = isToday ? 'Alertas de hoy' : `Alertas del ${keyToDate(data.date).toLocaleDateString('es-CO', { weekday: 'long', day: 'numeric', month: 'long' })}`;
+  const hourText = new Date(2000, 0, 1, data.hour).toLocaleTimeString('es-CO', { hour: 'numeric', minute: '2-digit' });
+  const generated = data.generatedAt
+    ? `Generadas: ${dateFmt.format(new Date(data.generatedAt))}`
+    : 'Todavía no se han generado';
+  $('#alerts-subtitle').textContent = `Productos con stock menor o igual al mínimo + ${data.margin}. Se generan todos los días a las ${hourText} · ${generated}`;
+  $('#alerts-generate-btn').hidden = !isToday;
+
+  // Días anteriores
+  const chips = days.some((d) => d.date === data.today) ? days : [{ date: data.today, total: 0, pending: 0 }, ...days];
+  $('#alerts-days').innerHTML = chips
+    .map(
+      (d) => `<button data-day="${d.date}" class="${d.date === data.date ? 'active' : ''}">
+        ${esc(dayLabel(d.date, data.today))}<span class="count ${d.pending ? 'has' : ''}">${d.total}</span>
+      </button>`,
+    )
+    .join('');
+
+  $('#alerts-pending').textContent = data.counts.pending;
+  $('#alerts-out').textContent = data.counts.OUT_OF_STOCK;
+  $('#alerts-below').textContent = data.counts.BELOW_MIN;
+  $('#alerts-near').textContent = data.counts.NEAR_MIN;
+
+  const hideResolved = $('#alerts-hide-resolved').checked;
+  const rows = data.alerts.filter((a) => !hideResolved || !a.resolved);
+  const emptyText = data.alerts.length
+    ? 'Todas las alertas de este día están atendidas ✔'
+    : data.generatedAt
+      ? 'Sin alertas: ningún producto está cerca del mínimo 🎉'
+      : 'Las alertas de este día aún no se han generado.';
+
+  $('#alerts-body').innerHTML = rows.length
+    ? rows
+        .map(
+          (a) => `<tr class="${a.resolved ? 'resolved' : ''}">
+            <td><span class="badge ${a.level}">${ALERT_LABEL[a.level]}</span></td>
+            <td><span class="sku">${esc(a.product.sku)}</span> ${esc(a.product.name)}</td>
+            <td>${esc(a.product.category ?? '—')}</td>
+            <td class="num">${a.stock}</td>
+            <td class="num">${a.minStock}</td>
+            <td class="num ${a.currentStock > a.stock ? 'stock-up' : ''}">${a.currentStock}</td>
+            <td class="num">${a.suggestedOrder || '—'}</td>
+            <td class="actions-cell">
+              ${a.resolved
+                ? `<span class="badge done">Atendida</span> <button class="link" data-reopen="${a.id}">Reabrir</button>`
+                : `${isToday ? `<button class="link" data-restock="${a.product.id}" data-alert="${a.id}" data-qty="${a.suggestedOrder}">Registrar entrada</button>` : ''}
+                   <button class="link" data-resolve="${a.id}">Marcar atendida</button>`}
+            </td>
+          </tr>`,
+        )
+        .join('')
+    : emptyRow(8, emptyText);
+
+  refreshAlertsBadge().catch(() => {});
+}
+
+$('#alerts-days').addEventListener('click', (e) => {
+  const btn = e.target.closest('[data-day]');
+  if (!btn) return;
+  state.alertsDate = btn.dataset.day;
+  loadAlerts();
+});
+$('#alerts-hide-resolved').addEventListener('change', loadAlerts);
+$('#alerts-generate-btn').addEventListener('click', async () => {
+  await api('/alerts/generate', { method: 'POST' });
+  state.alertsDate = null;
+  toast('Alertas de hoy actualizadas con el stock actual');
+  loadAlerts();
+});
+
+$('#alerts-body').addEventListener('click', async (e) => {
+  const { resolve, reopen, restock, alert, qty } = e.target.dataset;
+  try {
+    if (resolve || reopen) {
+      await api(`/alerts/${resolve || reopen}`, { method: 'PATCH', body: { resolved: Boolean(resolve) } });
+      toast(resolve ? 'Alerta marcada como atendida' : 'Alerta reabierta');
+      loadAlerts();
+    }
+    if (restock) {
+      state.pendingAlertResolve = Number(alert);
+      await openMovementDialog(Number(restock), 'IN', Number(qty) || '');
+      $('#movement-form [name=reason]').value = 'Compra a proveedor (alerta de stock)';
+    }
+  } catch (err) {
+    toast(err.message);
+  }
+});
+
+document.querySelectorAll('[data-goto]').forEach((btn) =>
+  btn.addEventListener('click', () => {
+    state.alertsDate = null;
+    showTab(btn.dataset.goto);
+  }),
+);
+
 // ---------- Productos ----------
 async function loadProducts() {
   await refreshCategories();
@@ -470,7 +596,7 @@ $('#movement-product-filter').addEventListener('change', loadMovements);
 $('#movement-type-filter').addEventListener('change', loadMovements);
 $('#new-movement-btn').addEventListener('click', () => openMovementDialog());
 
-async function openMovementDialog(productId, type = 'IN') {
+async function openMovementDialog(productId, type = 'IN', quantity = '') {
   await refreshProductOptions();
   if (!state.products.length) {
     toast('Primero crea un producto');
@@ -481,6 +607,7 @@ async function openMovementDialog(productId, type = 'IN') {
   $('#movement-error').textContent = '';
   if (productId) form.productId.value = productId;
   form.type.value = type;
+  form.quantity.value = quantity;
   updateMovementHint(true);
   $('#movement-dialog').showModal();
 }
@@ -498,7 +625,7 @@ function updateMovementHint(resetPrice = false) {
   const isAdjust = type === 'ADJUST';
   const isSale = type === 'SALE';
   const priced = type === 'SALE' || type === 'OUT'; // ventas y salidas cuentan en el reporte de ventas
-  $('#movement-dialog-title').textContent = isSale ? 'Nueva venta' : type === 'OUT' ? 'Registrar salida' : 'Registrar movimiento';
+  $('#movement-dialog-title').textContent = { SALE: 'Nueva venta', OUT: 'Registrar salida', IN: 'Registrar entrada', ADJUST: 'Ajuste de inventario' }[type];
   $('#quantity-label').textContent = isAdjust ? 'Stock contado' : 'Cantidad';
   $('#reason-label').textContent = isSale ? 'Nota (cliente, factura…)' : 'Motivo';
   $('#sale-total-label').textContent = isSale ? 'Total de la venta' : 'Total de la salida';
@@ -533,8 +660,12 @@ $('#movement-form').addEventListener('submit', async (e) => {
     reason: f.reason.value.trim() || undefined,
   };
   if (body.type === 'SALE' || body.type === 'OUT') body.unitPrice = Number(f.unitPrice.value);
+  const alertToResolve = body.type === 'IN' ? state.pendingAlertResolve : null;
   try {
     const m = await api('/movements', { method: 'POST', body });
+    // Entrada registrada desde una alerta: la alerta queda atendida.
+    if (alertToResolve) await api(`/alerts/${alertToResolve}`, { method: 'PATCH', body: { resolved: true } });
+    refreshAlertsBadge().catch(() => {});
     const extra = m.unitPrice != null ? ` por ${money.format(m.unitPrice * m.quantity)}` : '';
     toast(`${TYPE_DONE[m.type]}${extra}. Nuevo stock: ${m.newStock}`);
     $('#movement-dialog').close();
@@ -558,5 +689,11 @@ function confirmDelete(message) {
 document.querySelectorAll('[data-close]').forEach((btn) =>
   btn.addEventListener('click', () => btn.closest('dialog').close()),
 );
+$('#movement-dialog').addEventListener('close', () => {
+  state.pendingAlertResolve = null;
+});
 
 loadDashboard().catch((err) => toast(err.message));
+refreshAlertsBadge().catch(() => {});
+// Revisa cada 5 minutos por si se generaron las alertas del día (7:00 a. m.).
+setInterval(() => refreshAlertsBadge().catch(() => {}), 5 * 60_000);

@@ -128,7 +128,7 @@ td.actions-cell { text-align: right; white-space: nowrap; }
 .empty { text-align: center; color: var(--muted); padding: 28px; }
 .sku { font-family: ui-monospace, Menlo, monospace; font-size: 13px; color: var(--muted); }
 
-.badge { display: inline-block; padding: 2px 8px; border-radius: 999px; font-size: 12px; font-weight: 600; }
+.badge { display: inline-block; white-space: nowrap; padding: 2px 8px; border-radius: 999px; font-size: 12px; font-weight: 600; }
 .badge.IN { background: var(--primary-soft); color: var(--ok); }
 .badge.OUT { background: #f8e1de; color: var(--danger); }
 .badge.ADJUST { background: #e6e9e7; color: #4b524e; }
@@ -185,6 +185,36 @@ table.compact th, table.compact td { padding: 8px 6px; }
 #tab-sales .badge.OUT { background: #e6e9e7; color: #4b524e; }
 .total-preview { font-size: 20px; font-weight: 600; color: var(--primary-hover); padding: 6px 0; }
 .money { font-variant-numeric: tabular-nums; }
+
+/* ---------- Alertas ---------- */
+.nav-badge {
+  display: inline-block; min-width: 18px; padding: 0 6px; margin-left: 4px;
+  border-radius: 999px; background: var(--warn); color: #fff; font-size: 11px; line-height: 18px; text-align: center;
+}
+.alert-banner {
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  background: #fdf4e3; border: 1px solid #f0d9a8; border-left: 4px solid var(--warn);
+  border-radius: var(--radius); padding: 10px 14px; margin-bottom: 16px; color: #6b4a0b;
+}
+.alerts-header { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; flex-wrap: wrap; }
+.alerts-header h2 { margin: 0 0 4px; font-size: 18px; }
+.toolbar-actions { display: flex; gap: 12px; align-items: center; }
+.day-chips { display: flex; gap: 6px; flex-wrap: wrap; margin: 14px 0 16px; }
+.day-chips button { padding: 6px 10px; border-radius: 999px; font-size: 13px; color: var(--muted); }
+.day-chips button.active { background: var(--primary); border-color: var(--primary); color: #fff; }
+.day-chips .count { display: inline-block; margin-left: 4px; font-weight: 600; }
+.day-chips button:not(.active) .count.has { color: var(--warn); }
+.card.danger { border-left-color: var(--danger); }
+.card.danger strong { color: var(--danger); }
+.card.info { border-left-color: #8a948e; }
+.alerts-table { margin-top: 16px; }
+.alerts-table tr.resolved td { color: var(--muted); }
+.alerts-table tr.resolved .badge { opacity: .55; }
+.badge.OUT_OF_STOCK { background: #f8e1de; color: var(--danger); }
+.badge.BELOW_MIN { background: #fbecd0; color: var(--warn); }
+.badge.NEAR_MIN { background: #e6e9e7; color: #4b524e; }
+.badge.done { background: var(--primary-soft); color: var(--ok); }
+.stock-up { color: var(--ok); font-weight: 600; }
 
 .toast {
   position: fixed;
