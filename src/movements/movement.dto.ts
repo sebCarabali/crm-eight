@@ -23,7 +23,7 @@ export class CreateMovementDto {
 
   @ApiProperty({
     example: 5,
-    description: 'Unidades a sumar (IN) o restar (OUT). En ADJUST es el stock final contado.',
+    description: 'Unidades compradas (IN) o vendidas (SALE). En ADJUST es el stock final contado.',
   })
   @IsInt()
   @Min(0)
@@ -31,7 +31,9 @@ export class CreateMovementDto {
 
   @ApiPropertyOptional({
     example: 2500,
-    description: 'Para ventas (SALE) y salidas (OUT). Si no se envía, se usa el precio actual del producto.',
+    description:
+      'Venta (SALE): precio de venta unitario, por defecto el del producto. ' +
+      'Compra (IN): costo unitario, por defecto el costo del producto. No aplica a ajustes.',
   })
   @IsOptional()
   @IsNumber({ maxDecimalPlaces: 2 })

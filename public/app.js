@@ -4,8 +4,9 @@ const state = { categories: [], products: [] };
 
 const money = new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 });
 const dateFmt = new Intl.DateTimeFormat('es-CO', { dateStyle: 'short', timeStyle: 'short' });
-const TYPE_LABEL = { IN: 'Entrada', OUT: 'Salida', ADJUST: 'Ajuste', SALE: 'Venta' };
-const TYPE_DONE = { IN: 'Entrada registrada', OUT: 'Salida registrada', ADJUST: 'Ajuste registrado', SALE: 'Venta registrada' };
+// Ventas = salidas (baja el stock, entra dinero). Compras = entradas (sube el stock, sale dinero).
+const TYPE_LABEL = { IN: 'Compra', OUT: 'Venta', ADJUST: 'Ajuste', SALE: 'Venta' };
+const TYPE_DONE = { IN: 'Compra registrada', OUT: 'Venta registrada', ADJUST: 'Ajuste registrado', SALE: 'Venta registrada' };
 const TYPE_SIGN = { IN: '+', OUT: '−', SALE: '−', ADJUST: '=' };
 
 const $ = (sel) => document.querySelector(sel);
@@ -60,7 +61,7 @@ document.querySelectorAll('.tabs button').forEach((btn) => {
 function showTab(name) {
   document.querySelectorAll('.tabs button').forEach((b) => b.classList.toggle('active', b.dataset.tab === name));
   document.querySelectorAll('.tab').forEach((t) => t.classList.toggle('active', t.id === `tab-${name}`));
-  const loaders = { dashboard: loadDashboard, sales: loadSales, alerts: loadAlerts, products: loadProducts, categories: loadCategories, movements: loadMovements };
+  const loaders = { dashboard: loadDashboard, sales: loadSales, cash: loadCash, alerts: loadAlerts, products: loadProducts, categories: loadCategories, movements: loadMovements };
   loaders[name]().catch((err) => toast(err.message));
 }
 
@@ -106,13 +107,16 @@ function fromInputDate(value) {
 // ---------- Resumen ----------
 async function loadDashboard() {
   const today = startOfDay(new Date());
-  const [s, todaySales] = await Promise.all([
+  const monthStart = new Date(today.getFullYear(), today.getMonth(), 1);
+  const [s, todaySales, monthCash] = await Promise.all([
     api('/products/summary'),
     api(`/sales?from=${today.toISOString()}&to=${addDays(today, 1).toISOString()}`),
+    api(`/cash?from=${monthStart.toISOString()}&to=${addDays(today, 1).toISOString()}`),
   ]);
   $('#sum-sales-today').textContent = money.format(todaySales.totals.revenue);
   $('#sum-products').textContent = s.totalProducts;
-  $('#sum-units').textContent = s.totalUnits.toLocaleString('es-CO');
+  $('#sum-balance-month').textContent = money.format(monthCash.totals.balance);
+  $('#sum-balance-card').classList.toggle('negative', monthCash.totals.balance < 0);
   $('#sum-value').textContent = money.format(s.inventoryValue);
   $('#sum-low').textContent = s.lowStockCount;
   $('#low-stock-body').innerHTML = s.lowStock.length
@@ -121,7 +125,7 @@ async function loadDashboard() {
           (p) => `<tr>
             <td>${esc(p.name)}</td>
             <td class="num low">${p.stock}</td><td class="num">${p.minStock}</td>
-            <td class="actions-cell"><button class="link" data-restock="${p.id}">Registrar entrada</button></td>
+            <td class="actions-cell"><button class="link" data-restock="${p.id}">Registrar compra</button></td>
           </tr>`,
         )
         .join('')
@@ -136,29 +140,51 @@ $('#low-stock-body').addEventListener('click', (e) => {
 // ---------- Ventas ----------
 const MONTHS = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic'];
 
-function applySalesPreset(preset) {
+/** Rangos rápidos (Hoy, 7 días…) para las pantallas con filtro de fechas ('sales' o 'cash'). */
+function applyPreset(prefix, preset) {
   const today = startOfDay(new Date());
   let from = null;
   if (preset === 'today') from = today;
   if (preset === '7d') from = addDays(today, -6);
   if (preset === '30d') from = addDays(today, -29);
   if (preset === 'month') from = new Date(today.getFullYear(), today.getMonth(), 1);
-  $('#sales-from').value = from ? toInputDate(from) : '';
-  $('#sales-to').value = from ? toInputDate(today) : '';
-  document.querySelectorAll('#sales-presets button').forEach((b) => b.classList.toggle('active', b.dataset.preset === preset));
+  $(`#${prefix}-from`).value = from ? toInputDate(from) : '';
+  $(`#${prefix}-to`).value = from ? toInputDate(today) : '';
+  document.querySelectorAll(`#${prefix}-presets button`).forEach((b) => b.classList.toggle('active', b.dataset.preset === preset));
+}
+
+/** Parámetros from/to (ISO) a partir de los campos de fecha de una pantalla. */
+function rangeParams(prefix) {
+  const params = new URLSearchParams();
+  const fromVal = $(`#${prefix}-from`).value;
+  const toVal = $(`#${prefix}-to`).value;
+  if (fromVal) params.set('from', fromInputDate(fromVal).toISOString());
+  if (toVal) params.set('to', addDays(fromInputDate(toVal), 1).toISOString());
+  return { params, from: fromVal ? fromInputDate(fromVal) : null, to: toVal ? fromInputDate(toVal) : null };
+}
+
+function bindDateFilters(prefix, reload) {
+  document.querySelectorAll(`#${prefix}-presets button`).forEach((btn) =>
+    btn.addEventListener('click', () => {
+      applyPreset(prefix, btn.dataset.preset);
+      reload();
+    }),
+  );
+  for (const sel of [`#${prefix}-from`, `#${prefix}-to`]) {
+    $(sel).addEventListener('change', () => {
+      document.querySelectorAll(`#${prefix}-presets button`).forEach((b) => b.classList.remove('active'));
+      reload();
+    });
+  }
 }
 
 async function loadSales() {
   await refreshProductOptions();
   if (!loadSales.initialized) {
-    applySalesPreset('30d');
+    applyPreset('sales', '30d');
     loadSales.initialized = true;
   }
-  const params = new URLSearchParams();
-  const fromVal = $('#sales-from').value;
-  const toVal = $('#sales-to').value;
-  if (fromVal) params.set('from', fromInputDate(fromVal).toISOString());
-  if (toVal) params.set('to', addDays(fromInputDate(toVal), 1).toISOString());
+  const { params, from, to } = rangeParams('sales');
   if ($('#sales-product-filter').value) params.set('productId', $('#sales-product-filter').value);
 
   const report = await api(`/sales?${params}`);
@@ -169,7 +195,7 @@ async function loadSales() {
   $('#sales-units').textContent = totals.units.toLocaleString('es-CO');
   $('#sales-avg').textContent = money.format(totals.averageTicket);
 
-  renderSalesChart(sales, fromVal ? fromInputDate(fromVal) : null, toVal ? fromInputDate(toVal) : null);
+  renderSalesChart(sales, from, to);
 
   $('#top-products-body').innerHTML = topProducts.length
     ? topProducts
@@ -184,8 +210,8 @@ async function loadSales() {
     : emptyRow(3, 'Sin ventas en este periodo');
 
   logData(
-    'Ventas y salidas: detalle técnico',
-    sales.map((s) => ({ id: s.id, fecha: s.createdAt, tipo: s.type, sku: s.product.sku, producto: s.product.name, cantidad: s.quantity, precio: s.unitPrice, total: s.total })),
+    'Ventas: detalle técnico',
+    sales.map((s) => ({ id: s.id, fecha: s.createdAt, sku: s.product.sku, producto: s.product.name, cantidad: s.quantity, precio: s.unitPrice, total: s.total })),
   );
   state.sales = sales;
   state.salesShown = SALES_PAGE;
@@ -205,7 +231,6 @@ function renderSalesRows() {
         .map(
           (s) => `<tr>
             <td>${dateFmt.format(new Date(s.createdAt))}</td>
-            <td><span class="badge ${s.type}">${TYPE_LABEL[s.type]}</span></td>
             <td>${esc(s.product.name)}</td>
             <td class="num">${s.quantity}</td>
             <td class="num">${money.format(s.unitPrice)}</td>
@@ -214,44 +239,67 @@ function renderSalesRows() {
           </tr>`,
         )
         .join('')
-    : emptyRow(7, 'No hay ventas ni salidas en este periodo. Registra una con “+ Nueva venta”.');
+    : emptyRow(6, 'No hay ventas en este periodo. Registra una con “+ Nueva venta”.');
 }
 
-/** Gráfico de barras por día (o por mes si el rango es largo). */
-function renderSalesChart(sales, from, to) {
-  const chart = $('#sales-chart');
-  const dates = sales.map((s) => startOfDay(new Date(s.createdAt)));
+/**
+ * Agrupa registros por día (o por mes si el rango pasa de 2 meses).
+ * `series` indica cómo sumar cada registro: { nombre: (registro) => valor }.
+ */
+function bucketize(items, from, to, series) {
+  const dates = items.map((s) => startOfDay(new Date(s.createdAt)));
   const today = startOfDay(new Date());
   const start = from ?? (dates.length ? new Date(Math.min(...dates)) : addDays(today, -6));
   const end = to ?? today;
-  const spanDays = Math.round((end - start) / 86_400_000) + 1;
-  const byMonth = spanDays > 62;
-  $('#sales-chart-title').textContent = byMonth ? 'Ventas por mes' : 'Ventas por día';
+  const byMonth = Math.round((end - start) / 86_400_000) + 1 > 62;
+  const empty = () => Object.fromEntries(Object.keys(series).map((k) => [k, 0]));
 
   const buckets = [];
   const index = new Map();
   if (byMonth) {
     for (let d = new Date(start.getFullYear(), start.getMonth(), 1); d <= end; d = new Date(d.getFullYear(), d.getMonth() + 1, 1)) {
-      const key = `${d.getFullYear()}-${d.getMonth()}`;
-      index.set(key, buckets.length);
-      buckets.push({ label: `${MONTHS[d.getMonth()]} ${String(d.getFullYear()).slice(2)}`, full: `${MONTHS[d.getMonth()]} ${d.getFullYear()}`, total: 0 });
+      index.set(`${d.getFullYear()}-${d.getMonth()}`, buckets.length);
+      buckets.push({ label: `${MONTHS[d.getMonth()]} ${String(d.getFullYear()).slice(2)}`, full: `${MONTHS[d.getMonth()]} ${d.getFullYear()}`, ...empty() });
     }
   } else {
     for (let d = start; d <= end; d = addDays(d, 1)) {
       index.set(d.getTime(), buckets.length);
-      buckets.push({ label: `${d.getDate()}/${d.getMonth() + 1}`, full: d.toLocaleDateString('es-CO', { weekday: 'short', day: 'numeric', month: 'short' }), total: 0 });
+      buckets.push({ label: `${d.getDate()}/${d.getMonth() + 1}`, full: d.toLocaleDateString('es-CO', { weekday: 'short', day: 'numeric', month: 'short' }), ...empty() });
     }
   }
-  sales.forEach((s, i) => {
+  items.forEach((item, i) => {
     const d = dates[i];
-    const key = byMonth ? `${d.getFullYear()}-${d.getMonth()}` : d.getTime();
-    const pos = index.get(key);
-    if (pos !== undefined) buckets[pos].total += s.total;
+    const pos = index.get(byMonth ? `${d.getFullYear()}-${d.getMonth()}` : d.getTime());
+    if (pos === undefined) return;
+    for (const [k, fn] of Object.entries(series)) buckets[pos][k] += fn(item);
   });
+  return { buckets, byMonth };
+}
 
+/** Etiquetas bajo el gráfico: si hay muchas barras, solo algunas para que no se encimen. */
+function renderChartLabels(chart, buckets) {
+  let labels = chart.nextElementSibling;
+  if (!buckets) {
+    if (labels?.classList.contains('bar-labels')) labels.remove();
+    return;
+  }
+  const every = Math.ceil(buckets.length / 12);
+  if (!labels || !labels.classList.contains('bar-labels')) {
+    labels = document.createElement('div');
+    labels.className = 'bar-labels';
+    chart.after(labels);
+  }
+  labels.innerHTML = buckets.map((b, i) => `<span>${i % every === 0 ? esc(b.label) : ''}</span>`).join('');
+}
+
+/** Gráfico de ventas por día (o por mes si el rango es largo). */
+function renderSalesChart(sales, from, to) {
+  const chart = $('#sales-chart');
+  const { buckets, byMonth } = bucketize(sales, from, to, { total: (s) => s.total });
+  $('#sales-chart-title').textContent = byMonth ? 'Ventas por mes' : 'Ventas por día';
   if (!sales.length) {
     chart.innerHTML = '<p class="chart-empty">Sin ventas en este periodo</p>';
-    chart.nextElementSibling?.classList.contains('bar-labels') && chart.nextElementSibling.remove();
+    renderChartLabels(chart, null);
     return;
   }
   const max = Math.max(...buckets.map((b) => b.total), 1);
@@ -263,35 +311,108 @@ function renderSalesChart(sales, from, to) {
       </div>`,
     )
     .join('');
-  // Etiquetas: si hay muchas barras, mostrar solo algunas para que no se encimen.
-  const every = Math.ceil(buckets.length / 12);
-  let labels = chart.nextElementSibling;
-  if (!labels || !labels.classList.contains('bar-labels')) {
-    labels = document.createElement('div');
-    labels.className = 'bar-labels';
-    chart.after(labels);
-  }
-  labels.innerHTML = buckets.map((b, i) => `<span>${i % every === 0 ? esc(b.label) : ''}</span>`).join('');
+  renderChartLabels(chart, buckets);
 }
 
-document.querySelectorAll('#sales-presets button').forEach((btn) =>
-  btn.addEventListener('click', () => {
-    applySalesPreset(btn.dataset.preset);
-    loadSales();
-  }),
-);
-for (const sel of ['#sales-from', '#sales-to']) {
-  $(sel).addEventListener('change', () => {
-    document.querySelectorAll('#sales-presets button').forEach((b) => b.classList.remove('active'));
-    loadSales();
-  });
-}
+bindDateFilters('sales', () => loadSales());
 $('#sales-product-filter').addEventListener('change', loadSales);
 $('#sales-more').addEventListener('click', () => {
   state.salesShown += SALES_PAGE;
   renderSalesRows();
 });
 $('#new-sale-btn').addEventListener('click', () => openMovementDialog(null, 'SALE'));
+
+// ---------- Caja: ventas (+) y compras (−) ----------
+const CASH_PAGE = 25;
+const CASH_LABEL = { SALE: 'Venta', PURCHASE: 'Compra' };
+
+function signedMoney(amount) {
+  const text = money.format(Math.abs(amount));
+  return amount < 0 ? `− ${text}` : `+ ${text}`;
+}
+
+async function loadCash() {
+  if (!loadCash.initialized) {
+    applyPreset('cash', '30d');
+    loadCash.initialized = true;
+  }
+  const { params, from, to } = rangeParams('cash');
+  const { totals, entries } = await api(`/cash?${params}`);
+
+  $('#cash-income').textContent = money.format(totals.income);
+  $('#cash-income-count').textContent = `${totals.salesCount} venta(s)`;
+  $('#cash-expense').textContent = money.format(totals.expense);
+  $('#cash-expense-count').textContent = `${totals.purchasesCount} compra(s)`;
+  $('#cash-balance').textContent = money.format(totals.balance);
+  $('#cash-balance-card').classList.toggle('negative', totals.balance < 0);
+
+  renderCashChart(entries, from, to);
+  logData(
+    'Caja: detalle técnico',
+    entries.map((e) => ({ id: e.id, fecha: e.createdAt, concepto: e.kind, sku: e.product.sku, producto: e.product.name, cantidad: e.quantity, valorUnitario: e.unitPrice, valor: e.amount, saldo: e.balance })),
+  );
+  state.cash = entries;
+  state.cashShown = CASH_PAGE;
+  renderCashRows();
+}
+
+function renderCashRows() {
+  const entries = state.cash;
+  const visible = entries.slice(0, state.cashShown);
+  const more = $('#cash-more');
+  more.hidden = entries.length <= state.cashShown;
+  more.textContent = `Mostrar más (${entries.length - visible.length} restantes)`;
+  $('#cash-body').innerHTML = entries.length
+    ? visible
+        .map(
+          (e) => `<tr>
+            <td>${dateFmt.format(new Date(e.createdAt))}</td>
+            <td><span class="badge ${e.kind}">${CASH_LABEL[e.kind]}</span></td>
+            <td>${esc(e.product.name)}</td>
+            <td class="num">${e.quantity}</td>
+            <td class="num">${money.format(e.unitPrice)}</td>
+            <td class="num"><strong class="${e.amount < 0 ? 'money-out' : 'money-in'}">${signedMoney(e.amount)}</strong></td>
+            <td class="num ${e.balance < 0 ? 'money-out' : ''}">${money.format(e.balance)}</td>
+            <td>${esc(e.reason ?? '')}</td>
+          </tr>`,
+        )
+        .join('')
+    : emptyRow(8, 'No hay ventas ni compras en este periodo.');
+}
+
+/** Barras agrupadas: ingresos (verde) y egresos (rojo) por día o mes. */
+function renderCashChart(entries, from, to) {
+  const chart = $('#cash-chart');
+  const { buckets, byMonth } = bucketize(entries, from, to, {
+    income: (e) => (e.amount > 0 ? e.amount : 0),
+    expense: (e) => (e.amount < 0 ? -e.amount : 0),
+  });
+  $('#cash-chart-title').textContent = byMonth ? 'Ingresos y egresos por mes' : 'Ingresos y egresos por día';
+  if (!entries.length) {
+    chart.innerHTML = '<p class="chart-empty">Sin movimientos de caja en este periodo</p>';
+    renderChartLabels(chart, null);
+    return;
+  }
+  const max = Math.max(...buckets.map((b) => Math.max(b.income, b.expense)), 1);
+  chart.innerHTML = buckets
+    .map(
+      (b) => `<div class="bar-col">
+        <span class="tip">${esc(b.full)}: +${money.format(b.income)} / −${money.format(b.expense)} = ${money.format(b.income - b.expense)}</span>
+        <div class="bar ${b.income ? '' : 'zero'}" style="height:${(b.income / max) * 100}%"></div>
+        <div class="bar out ${b.expense ? '' : 'zero'}" style="height:${(b.expense / max) * 100}%"></div>
+      </div>`,
+    )
+    .join('');
+  renderChartLabels(chart, buckets);
+}
+
+bindDateFilters('cash', () => loadCash());
+$('#cash-more').addEventListener('click', () => {
+  state.cashShown += CASH_PAGE;
+  renderCashRows();
+});
+$('#cash-new-sale').addEventListener('click', () => openMovementDialog(null, 'SALE'));
+$('#cash-new-purchase').addEventListener('click', () => openMovementDialog(null, 'IN'));
 
 // ---------- Alertas diarias ----------
 const ALERT_LABEL = { OUT_OF_STOCK: 'Agotado', BELOW_MIN: 'Bajo el mínimo', NEAR_MIN: 'Cerca del mínimo' };
@@ -372,7 +493,7 @@ async function loadAlerts() {
             <td class="actions-cell">
               ${a.resolved
                 ? `<span class="badge done">Atendida</span> <button class="link" data-reopen="${a.id}">Reabrir</button>`
-                : `${isToday ? `<button class="link" data-restock="${a.product.id}" data-alert="${a.id}" data-qty="${a.suggestedOrder}">Registrar entrada</button>` : ''}
+                : `${isToday ? `<button class="link" data-restock="${a.product.id}" data-alert="${a.id}" data-qty="${a.suggestedOrder}">Registrar compra</button>` : ''}
                    <button class="link" data-resolve="${a.id}">Marcar atendida</button>`}
             </td>
           </tr>`,
@@ -408,7 +529,7 @@ $('#alerts-body').addEventListener('click', async (e) => {
     if (restock) {
       state.pendingAlertResolve = Number(alert);
       await openMovementDialog(Number(restock), 'IN', Number(qty) || '');
-      $('#movement-form [name=reason]').value = 'Compra a proveedor (alerta de stock)';
+      $('#movement-form [name=reason]').value = 'Pedido por alerta de stock';
     }
   } catch (err) {
     toast(err.message);
@@ -439,6 +560,7 @@ async function loadProducts() {
             <td class="sku">${esc(p.sku)}</td>
             <td>${esc(p.name)}</td>
             <td>${esc(p.category?.name ?? '—')}</td>
+            <td class="num">${p.cost ? money.format(p.cost) : '—'}</td>
             <td class="num">${money.format(p.price)}</td>
             <td class="num ${p.stock <= p.minStock ? 'low' : ''}">${p.stock}</td>
             <td class="num">${p.minStock}</td>
@@ -450,7 +572,7 @@ async function loadProducts() {
           </tr>`,
         )
         .join('')
-    : emptyRow(7, 'No hay productos. Crea el primero con “+ Nuevo producto”.');
+    : emptyRow(8, 'No hay productos. Crea el primero con “+ Nuevo producto”.');
 }
 
 let searchTimer;
@@ -464,7 +586,7 @@ $('#new-product-btn').addEventListener('click', () => openProductDialog());
 
 $('#products-body').addEventListener('click', async (e) => {
   const { move, edit, delete: del } = e.target.dataset;
-  if (move) openMovementDialog(Number(move));
+  if (move) openMovementDialog(Number(move), 'SALE');
   if (edit) openProductDialog(await api(`/products/${edit}`));
   if (del && confirmDelete('¿Eliminar este producto y todo su historial de movimientos?')) {
     try {
@@ -489,6 +611,7 @@ function openProductDialog(product) {
     form.name.value = product.name;
     form.description.value = product.description ?? '';
     form.price.value = product.price;
+    form.cost.value = product.cost || '';
     form.minStock.value = product.minStock;
     form.categoryId.value = product.category?.id ?? '';
   } else {
@@ -505,6 +628,7 @@ $('#product-form').addEventListener('submit', async (e) => {
     name: f.name.value.trim(),
     description: f.description.value.trim() || undefined,
     price: Number(f.price.value),
+    cost: Number(f.cost.value || 0),
     minStock: Number(f.minStock.value || 0),
     categoryId: f.categoryId.value ? Number(f.categoryId.value) : null,
   };
@@ -616,9 +740,11 @@ async function loadMovements() {
 
 $('#movement-product-filter').addEventListener('change', loadMovements);
 $('#movement-type-filter').addEventListener('change', loadMovements);
-$('#new-movement-btn').addEventListener('click', () => openMovementDialog());
+$('#new-movement-btn').addEventListener('click', () => openMovementDialog(null, 'SALE'));
+$('#new-purchase-btn').addEventListener('click', () => openMovementDialog(null, 'IN'));
+$('#new-adjust-btn').addEventListener('click', () => openMovementDialog(null, 'ADJUST'));
 
-async function openMovementDialog(productId, type = 'IN', quantity = '') {
+async function openMovementDialog(productId, type = 'SALE', quantity = '') {
   await refreshProductOptions();
   if (!state.products.length) {
     toast('Primero crea un producto');
@@ -639,32 +765,49 @@ function selectedProduct() {
   return state.products.find((p) => p.id === Number(form.productId.value));
 }
 
-/** Ajusta el formulario según el tipo; resetPrice pone el precio actual del producto. */
+/**
+ * Ajusta el formulario según el tipo:
+ *  - Venta (salida): precio de venta, baja el stock, entra dinero.
+ *  - Compra (entrada): costo unitario, sube el stock, sale dinero.
+ *  - Ajuste: solo fija el stock contado, no mueve dinero.
+ * resetPrice pone el precio/costo del producto seleccionado.
+ */
 function updateMovementHint(resetPrice = false) {
   const form = $('#movement-form');
   const product = selectedProduct();
   const type = form.type.value;
   const isAdjust = type === 'ADJUST';
   const isSale = type === 'SALE';
-  const priced = type === 'SALE' || type === 'OUT'; // ventas y salidas cuentan en el reporte de ventas
-  $('#movement-dialog-title').textContent = { SALE: 'Nueva venta', OUT: 'Registrar salida', IN: 'Registrar entrada', ADJUST: 'Ajuste de inventario' }[type];
-  $('#quantity-label').textContent = isAdjust ? 'Stock contado' : 'Cantidad';
-  $('#reason-label').textContent = isSale ? 'Nota (cliente, factura…)' : 'Motivo';
-  $('#sale-total-label').textContent = isSale ? 'Total de la venta' : 'Total de la salida';
-  $('#sale-fields').style.display = priced ? '' : 'none';
-  form.unitPrice.required = priced;
+  const isPurchase = type === 'IN';
+  $('#movement-dialog-title').textContent = { SALE: 'Nueva venta', IN: 'Nueva compra', ADJUST: 'Ajuste de inventario' }[type];
+  $('#quantity-label').textContent = isAdjust ? 'Stock contado' : isSale ? 'Cantidad vendida' : 'Cantidad comprada';
+  $('#reason-label').textContent = isSale ? 'Nota (cliente, forma de pago…)' : isPurchase ? 'Proveedor / nota' : 'Motivo';
+  form.reason.placeholder = isSale ? 'Ej: Nequi, fiado, domicilio…' : isPurchase ? 'Ej: Distribuidora, factura 123…' : 'Ej: conteo físico, producto dañado…';
+  $('#unit-price-label').textContent = isSale ? 'Precio de venta unitario' : 'Costo unitario';
+  $('#sale-total-label').textContent = isSale ? 'Total de la venta' : 'Total de la compra';
+  $('#sale-fields').style.display = isAdjust ? 'none' : '';
+  form.unitPrice.required = !isAdjust;
   form.quantity.min = isAdjust ? 0 : 1;
-  if (priced && product && (resetPrice || form.unitPrice.value === '')) form.unitPrice.value = product.price;
+  if (!isAdjust && product && (resetPrice || form.unitPrice.value === '')) {
+    const value = isSale ? product.price : product.cost;
+    form.unitPrice.value = value ? value : '';
+  }
   $('#movement-hint').textContent = product
-    ? `Stock actual: ${product.stock}` + (isAdjust ? ' — el stock quedará en la cantidad contada.' : '')
+    ? `Stock actual: ${product.stock}` + (isAdjust ? ' — el stock quedará en la cantidad contada. No afecta la caja.' : '')
     : '';
   updateSaleTotal();
 }
 
 function updateSaleTotal() {
   const form = $('#movement-form');
+  const type = form.type.value;
   const total = Number(form.unitPrice.value || 0) * Number(form.quantity.value || 0);
   $('#sale-total').textContent = money.format(total);
+  $('#sale-total').classList.toggle('money-out', type === 'IN');
+  const hint = $('#money-hint');
+  hint.className = `money-hint ${type === 'SALE' ? 'in' : type === 'IN' ? 'out' : ''}`;
+  hint.textContent =
+    type === 'SALE' ? `Entra a caja: + ${money.format(total)}` : type === 'IN' ? `Sale de caja: − ${money.format(total)}` : '';
 }
 
 $('#movement-form [name=productId]').addEventListener('change', () => updateMovementHint(true));
@@ -681,7 +824,7 @@ $('#movement-form').addEventListener('submit', async (e) => {
     quantity: Number(f.quantity.value),
     reason: f.reason.value.trim() || undefined,
   };
-  if (body.type === 'SALE' || body.type === 'OUT') body.unitPrice = Number(f.unitPrice.value);
+  if (body.type !== 'ADJUST') body.unitPrice = Number(f.unitPrice.value);
   const alertToResolve = body.type === 'IN' ? state.pendingAlertResolve : null;
   try {
     const m = await api('/movements', { method: 'POST', body });

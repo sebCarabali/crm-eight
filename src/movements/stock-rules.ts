@@ -8,7 +8,7 @@ export function computeNewStock(current: number, type: MovementType, quantity: n
   }
   switch (type) {
     case MovementType.IN:
-      if (quantity === 0) throw new BadRequestException('La cantidad de entrada debe ser mayor a 0');
+      if (quantity === 0) throw new BadRequestException('La cantidad comprada debe ser mayor a 0');
       return current + quantity;
     case MovementType.OUT:
     case MovementType.SALE:

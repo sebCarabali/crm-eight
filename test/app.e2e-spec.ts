@@ -41,7 +41,7 @@ describe('Inventario (e2e)', () => {
   it('crea un producto con stock inicial', async () => {
     const res = await request(app.getHttpServer())
       .post('/api/products')
-      .send({ sku: 'LAP-001', name: 'Laptop', price: 1000, minStock: 3, categoryId, initialStock: 5 })
+      .send({ sku: 'LAP-001', name: 'Laptop', price: 1000, cost: 600, minStock: 3, categoryId, initialStock: 5 })
       .expect(201);
     productId = res.body.id;
     expect(res.body.stock).toBe(5);
@@ -51,11 +51,13 @@ describe('Inventario (e2e)', () => {
   it('valida los datos del producto', () =>
     request(app.getHttpServer()).post('/api/products').send({ sku: '', price: -1 }).expect(400));
 
-  it('registra una salida y actualiza el stock', async () => {
+  it('una salida es una venta: baja el stock y guarda el precio de venta', async () => {
     const res = await request(app.getHttpServer())
       .post('/api/movements')
       .send({ productId, type: 'OUT', quantity: 3, reason: 'Venta' })
       .expect(201);
+    expect(res.body.type).toBe('SALE');
+    expect(res.body.unitPrice).toBe(1000);
     expect(res.body.previousStock).toBe(5);
     expect(res.body.newStock).toBe(2);
   });
@@ -77,7 +79,9 @@ describe('Inventario (e2e)', () => {
   it('lista el historial de movimientos', async () => {
     const res = await request(app.getHttpServer()).get(`/api/movements?productId=${productId}`).expect(200);
     expect(res.body).toHaveLength(2);
-    expect(res.body[0].type).toBe('OUT');
+    expect(res.body[0].type).toBe('SALE');
+    // el stock inicial es inventario inicial (ajuste), no una compra
+    expect(res.body[1]).toMatchObject({ type: 'ADJUST', unitPrice: null, reason: 'Inventario inicial' });
   });
 
   it('registra una venta con el precio actual del producto', async () => {
@@ -104,12 +108,41 @@ describe('Inventario (e2e)', () => {
       .send({ productId, type: 'SALE', quantity: 1 })
       .expect(400));
 
-  it('reporta ventas y salidas con totales', async () => {
+  it('reporta las ventas con totales', async () => {
     const res = await request(app.getHttpServer()).get('/api/sales').expect(200);
-    // 1 salida de 3 × 1000 + venta de 1 × 1000 + venta de 1 × 900
+    // venta de 3 × 1000 + venta de 1 × 1000 + venta de 1 × 900
     expect(res.body.totals).toEqual({ revenue: 4900, units: 5, count: 3, averageTicket: 1633.33 });
-    expect(res.body.sales.map((s: { type: string }) => s.type)).toEqual(['SALE', 'SALE', 'OUT']);
+    expect(res.body.sales.map((s: { type: string }) => s.type)).toEqual(['SALE', 'SALE', 'SALE']);
     expect(res.body.topProducts[0]).toMatchObject({ sku: 'LAP-001', units: 5, revenue: 4900 });
+  });
+
+  it('una compra (entrada) sube el stock con el costo del producto', async () => {
+    const res = await request(app.getHttpServer())
+      .post('/api/movements')
+      .send({ productId, type: 'IN', quantity: 10, reason: 'Proveedor' })
+      .expect(201);
+    expect(res.body).toMatchObject({ previousStock: 0, newStock: 10, unitPrice: 600 });
+  });
+
+  it('la caja suma ventas y resta compras', async () => {
+    await request(app.getHttpServer())
+      .post('/api/movements')
+      .send({ productId, type: 'IN', quantity: 2, unitPrice: 550 })
+      .expect(201);
+    const res = await request(app.getHttpServer()).get('/api/cash').expect(200);
+    // ingresos 4900; egresos 10 × 600 + 2 × 550 = 7100
+    expect(res.body.totals).toEqual({ income: 4900, expense: 7100, balance: -2200, salesCount: 3, purchasesCount: 2 });
+    const [last, prev] = res.body.entries;
+    expect(last).toMatchObject({ kind: 'PURCHASE', amount: -1100, balance: -2200 });
+    expect(prev).toMatchObject({ kind: 'PURCHASE', amount: -6000, balance: -1100 });
+    // el inventario inicial no aparece en la caja
+    expect(res.body.entries).toHaveLength(5);
+  });
+
+  it('un ajuste no mueve dinero', async () => {
+    await request(app.getHttpServer()).post('/api/movements').send({ productId, type: 'ADJUST', quantity: 11 }).expect(201);
+    const res = await request(app.getHttpServer()).get('/api/cash').expect(200);
+    expect(res.body.totals.balance).toBe(-2200);
   });
 
   it('filtra las ventas por fecha', async () => {

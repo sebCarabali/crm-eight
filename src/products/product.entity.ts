@@ -23,8 +23,13 @@ export class Product {
   @Column({ type: 'text', nullable: true })
   description: string | null;
 
+  /** Precio de venta. */
   @Column({ type: 'real', default: 0 })
   price: number;
+
+  /** Costo de compra al proveedor (valor por defecto al registrar una compra). */
+  @Column({ type: 'real', default: 0 })
+  cost: number;
 
   /** Existencias actuales. Solo cambia a través de movimientos de stock. */
   @Column({ type: 'integer', default: 0 })

@@ -2,13 +2,13 @@ import { Column, CreateDateColumn, Entity, ManyToOne, PrimaryGeneratedColumn } f
 import { Product } from '../products/product.entity';
 
 export enum MovementType {
-  /** Entrada: compra, devolución de cliente, etc. Suma al stock. */
+  /** Compra (entrada): suma al stock y sale dinero (costo unitario). */
   IN = 'IN',
-  /** Salida: venta, consumo, merma. Resta del stock. */
+  /** Obsoleto: una salida es una venta y se registra como SALE. */
   OUT = 'OUT',
-  /** Ajuste por conteo físico: el stock queda exactamente en la cantidad indicada. */
+  /** Ajuste por conteo físico o inventario inicial: fija el stock, no mueve dinero. */
   ADJUST = 'ADJUST',
-  /** Venta: resta del stock como una salida y guarda el precio unitario cobrado. */
+  /** Venta (salida): resta del stock y entra dinero (precio de venta). */
   SALE = 'SALE',
 }
 
@@ -32,7 +32,10 @@ export class StockMovement {
   @Column({ type: 'integer' })
   newStock: number;
 
-  /** Precio unitario (ventas y salidas). Se congela al momento del movimiento. */
+  /**
+   * Valor unitario: precio de venta en ventas, costo en compras; null si no mueve dinero.
+   * Se congela al momento del movimiento.
+   */
   @Column({ type: 'real', nullable: true })
   unitPrice: number | null;
 

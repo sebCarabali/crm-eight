@@ -180,6 +180,22 @@ export const SEED_CATEGORIES: SeedCategory[] = [
   },
 ];
 
-/** Motivos de las salidas que no son ventas de mostrador. */
-export const OUT_REASONS = ['Venta a crédito (fiado)', 'Pedido a domicilio', 'Venta al por mayor', 'Consumo interno'];
-export const SALE_NOTES = ['', '', '', '', 'Cliente frecuente', 'Pago con Nequi', 'Pago con Daviplata', 'Domicilio'];
+/** Notas de venta (vacías la mayoría de veces, como en una tienda real). */
+export const SALE_NOTES = [
+  '', '', '', '', '', '',
+  'Cliente frecuente', 'Pago con Nequi', 'Pago con Daviplata', 'Domicilio',
+  'Venta a crédito (fiado)', 'Venta al por mayor',
+];
+
+/** Proveedores para las compras. */
+export const SUPPLIERS = ['Distribuidora mayorista', 'Postobón', 'Coca-Cola FEMSA', 'Alquería', 'Bimbo', 'Plaza de mercado', 'Bavaria', 'Nutresa'];
+
+/**
+ * Costo de compra aproximado: margen típico de tienda de barrio
+ * (≈ 22 % en canasta básica, ≈ 30 % en mecato, dulces y licores), redondeado a $50.
+ */
+export function costFor(category: string, price: number): number {
+  const highMargin = ['Mecato y paquetes', 'Dulces y galletas', 'Cervezas y licores', 'Aseo personal'];
+  const factor = highMargin.includes(category) ? 0.7 : 0.78;
+  return Math.max(50, Math.round((price * factor) / 50) * 50);
+}

@@ -29,10 +29,16 @@ export class CreateProductDto {
   @IsString()
   description?: string;
 
-  @ApiProperty({ example: 2500000 })
+  @ApiProperty({ example: 2500, description: 'Precio de venta' })
   @IsNumber({ maxDecimalPlaces: 2 })
   @Min(0)
   price: number;
+
+  @ApiPropertyOptional({ example: 1800, default: 0, description: 'Costo de compra al proveedor' })
+  @IsOptional()
+  @IsNumber({ maxDecimalPlaces: 2 })
+  @Min(0)
+  cost?: number;
 
   @ApiPropertyOptional({ example: 5, default: 0 })
   @IsOptional()
@@ -45,7 +51,10 @@ export class CreateProductDto {
   @IsInt()
   categoryId?: number | null;
 
-  @ApiPropertyOptional({ example: 10, description: 'Stock inicial; se registra como movimiento de entrada' })
+  @ApiPropertyOptional({
+    example: 10,
+    description: 'Stock inicial; se registra como inventario inicial (ajuste), no como compra: no afecta la caja',
+  })
   @IsOptional()
   @IsInt()
   @Min(0)

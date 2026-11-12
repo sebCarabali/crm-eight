@@ -13,21 +13,35 @@ Sistema de manejo de inventario con interfaz web y API REST.
 |---|---|
 | **Categorías** | Crear, editar y eliminar (no deja borrar categorías con productos). |
 | **Productos** | CRUD con SKU único, precio, stock mínimo y categoría. Búsqueda por nombre/SKU y filtros por categoría y stock bajo. |
-| **Ventas** | Registrar ventas (descuentan stock y guardan el precio cobrado). Las **salidas** también cuentan como ventas y aparecen en esta pantalla. Filtros por fecha (hoy, 7 días, 30 días, este mes, todo o rango) y producto, total vendido, número de ventas, unidades, ticket promedio, gráfico por día/mes, productos más vendidos y detalle. |
+| **Ventas** | Registrar ventas (descuentan stock y guardan el precio cobrado). Filtros por fecha (hoy, 7 días, 30 días, este mes, todo o rango) y producto, total vendido, número de ventas, unidades, ticket promedio, gráfico por día/mes, productos más vendidos y detalle. |
 | **Alertas diarias** | Todos los días a las 7:00 a. m. (hora de Colombia) se generan alertas de los productos con **stock ≤ mínimo + 2**: *Agotado*, *Bajo el mínimo* o *Cerca del mínimo*. Contador en el menú, aviso en el Resumen, historial por día, cantidad sugerida a pedir, y registrar entrada o marcar como atendida. |
-| **Movimientos** | Entradas (+), salidas (−), ajustes por conteo físico y ventas. Cada movimiento guarda stock anterior y nuevo. No permite sacar más de lo que hay. |
-| **Resumen** | Ventas de hoy, total de productos, unidades, valor del inventario y lista de productos con stock bajo. |
+| **Caja** | Ingresos por ventas, egresos por compras y **saldo** del periodo (hoy, 7 días, 30 días, mes, todo o rango). Gráfico de ingresos vs. egresos por día/mes y detalle con saldo acumulado. |
+| **Movimientos** | Ventas, compras y ajustes. Cada movimiento guarda stock anterior y nuevo. No permite vender más de lo que hay. |
+| **Resumen** | Ventas de hoy, saldo del mes, valor del inventario y lista de productos con stock bajo. |
 
 > El stock de un producto **solo cambia con movimientos**, así siempre queda historial de cada unidad que entra o sale.
+
+## Ventas, compras y saldo
+
+| Movimiento | Stock | Dinero |
+|---|---|---|
+| **Venta** (salida) | baja | **entra** (+ precio de venta) |
+| **Compra** (entrada) | sube | **sale** (− costo de compra) |
+| **Ajuste** / inventario inicial | se fija al conteo | no afecta |
+
+- Cada producto tiene **costo de compra** y **precio de venta**; se usan como valores por defecto al registrar compras y ventas (se pueden cambiar en cada una).
+- **Saldo** = ingresos por ventas − egresos por compras en el periodo.
+- El **inventario inicial** de un producto nuevo es mercancía que ya se tenía: no cuenta como compra.
+- Las "salidas" registradas en versiones anteriores se convierten automáticamente en ventas al arrancar.
 
 ## Datos de prueba: tienda de barrio colombiana
 
 La primera vez que arranca (con la base vacía) se cargan automáticamente:
 
 - **14 categorías**: Bebidas, Lácteos y huevos, Panadería, Granos y abarrotes, Café y chocolate, Enlatados y conservas, Carnes frías, Mecato y paquetes, Dulces y galletas, Condimentos y salsas, Frutas y verduras, Aseo del hogar, Aseo personal, Cervezas y licores.
-- **73 productos** típicos (Coca-Cola, Pony Malta, leche Alquería, pandebono, arroz Diana, panela, café Sello Rojo, Chocoramo, Bon Bon Bum, Jabón Rey, cerveza Águila…) con precios de referencia en pesos.
+- **73 productos** típicos (Coca-Cola, Pony Malta, leche Alquería, pandebono, arroz Diana, panela, café Sello Rojo, Chocoramo, Bon Bon Bum, Jabón Rey, cerveza Águila…) con precio de venta y costo de compra de referencia en pesos (margen de 22 % a 30 %).
 - **Alertas de la última semana**, reconstruidas con el stock que había cada día a las 7:00 a. m.
-- **Un mes de historial**: unas 1.000 ventas y salidas entre 7 a. m. y 9 p. m. (más movimiento en fines de semana y quincena), compras a proveedor y algunos ajustes. Varios productos quedan en stock bajo.
+- **Un mes de historial**: unas 1.000 ventas entre 7 a. m. y 9 p. m. (más movimiento en fines de semana y quincena), compras a proveedores y algunos ajustes. Varios productos quedan en stock bajo.
 
 Los datos se generan con una semilla fija, así que siempre salen iguales. Se definen en `src/seed/seed-data.ts`.
 
@@ -80,7 +94,7 @@ El "sugerido pedir" es lo que falta para llegar al doble del stock mínimo.
 
 Las pantallas muestran solo lo que necesita quien atiende la tienda. El detalle técnico queda en el log:
 
-- **Navegador** (Herramientas de desarrollador → Consola, grupos `[Inventario]`): SKU, stock antes y después de cada movimiento, precio unitario de los movimientos, stock que tenía cada producto al generar la alerta y hora de generación.
+- **Navegador** (Herramientas de desarrollador → Consola, grupos `[Inventario]`): SKU, stock antes y después de cada movimiento, valores unitarios, detalle de caja, stock que tenía cada producto al generar la alerta y hora de generación.
 - **Servidor**: generación de alertas con el detalle por producto (stock al generar, mínimo y nivel) y la dirección de la documentación de la API (`/docs`).
 
 El SKU solo se muestra en la pantalla de Productos, donde se administra. Toda esta información sigue disponible en la API.
@@ -107,12 +121,13 @@ npm run test:e2e   # pruebas de la API completa (base en memoria)
 | PATCH | `/api/products/:id` | Edita producto (no el stock) |
 | DELETE | `/api/products/:id` | Elimina producto y su historial |
 | GET | `/api/movements?productId=&type=&limit=` | Historial de movimientos |
-| POST | `/api/movements` | Registra movimiento `{ productId, type: IN\|OUT\|ADJUST\|SALE, quantity, unitPrice?, reason }` |
+| POST | `/api/movements` | Registra movimiento `{ productId, type: SALE\|IN\|ADJUST, quantity, unitPrice?, reason }` (SALE = venta, IN = compra) |
+| GET | `/api/cash?from=&to=&productId=` | Caja: ingresos, egresos, saldo y movimientos con saldo acumulado |
 | GET | `/api/alerts?date=YYYY-MM-DD` | Alertas de un día (por defecto hoy) con conteos por nivel |
 | GET | `/api/alerts/days?limit=14` | Últimos días con alertas |
 | POST | `/api/alerts/generate` | Genera/actualiza ya mismo las alertas de hoy |
 | PATCH | `/api/alerts/:id` | Marca una alerta como atendida `{ resolved: true }` |
-| GET | `/api/sales?from=&to=&productId=` | Reporte de ventas y salidas: totales, productos más vendidos y detalle (`from`/`to` en ISO 8601) |
+| GET | `/api/sales?from=&to=&productId=` | Reporte de ventas: totales, productos más vendidos y detalle (`from`/`to` en ISO 8601) |
 
 ## Estructura
 

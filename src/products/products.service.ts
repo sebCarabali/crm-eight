@@ -58,6 +58,7 @@ export class ProductsService {
           name: dto.name.trim(),
           description: dto.description ?? null,
           price: dto.price,
+          cost: dto.cost ?? 0,
           minStock: dto.minStock ?? 0,
           stock: initialStock,
           category,
@@ -67,11 +68,13 @@ export class ProductsService {
         await em.save(
           em.create(StockMovement, {
             product,
-            type: MovementType.IN,
+            // Inventario inicial: es mercancía que ya se tenía, no una compra (no afecta la caja).
+            type: MovementType.ADJUST,
             quantity: initialStock,
             previousStock: 0,
             newStock: initialStock,
-            reason: 'Stock inicial',
+            unitPrice: null,
+            reason: 'Inventario inicial',
           }),
         );
       }

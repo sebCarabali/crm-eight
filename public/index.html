@@ -13,6 +13,7 @@
     <nav class="tabs">
       <button data-tab="dashboard" class="active">Resumen</button>
       <button data-tab="sales">Ventas</button>
+      <button data-tab="cash">Caja</button>
       <button data-tab="alerts">Alertas <span class="nav-badge" id="alerts-badge" hidden>0</span></button>
       <button data-tab="products">Productos</button>
       <button data-tab="categories">Categorías</button>
@@ -30,7 +31,7 @@
       <div class="cards">
         <div class="card"><span>Ventas de hoy</span><strong id="sum-sales-today">$0</strong></div>
         <div class="card"><span>Productos</span><strong id="sum-products">0</strong></div>
-        <div class="card"><span>Unidades en stock</span><strong id="sum-units">0</strong></div>
+        <div class="card" id="sum-balance-card"><span>Saldo del mes</span><strong id="sum-balance-month">$0</strong></div>
         <div class="card"><span>Valor del inventario</span><strong id="sum-value">$0</strong></div>
         <div class="card warn"><span>Con stock bajo</span><strong id="sum-low">0</strong></div>
       </div>
@@ -59,7 +60,7 @@
 
       <div class="cards">
         <div class="card"><span>Total vendido</span><strong id="sales-revenue">$0</strong></div>
-        <div class="card"><span>Ventas y salidas</span><strong id="sales-count">0</strong></div>
+        <div class="card"><span>Número de ventas</span><strong id="sales-count">0</strong></div>
         <div class="card"><span>Unidades vendidas</span><strong id="sales-units">0</strong></div>
         <div class="card"><span>Ticket promedio</span><strong id="sales-avg">$0</strong></div>
       </div>
@@ -78,14 +79,56 @@
         </div>
       </div>
 
-      <h2>Detalle de ventas y salidas</h2>
+      <h2>Detalle de ventas</h2>
       <table>
         <thead>
-          <tr><th>Fecha</th><th>Tipo</th><th>Producto</th><th class="num">Cantidad</th><th class="num">Precio unit.</th><th class="num">Total</th><th>Nota</th></tr>
+          <tr><th>Fecha</th><th>Producto</th><th class="num">Cantidad</th><th class="num">Precio unit.</th><th class="num">Total</th><th>Nota</th></tr>
         </thead>
         <tbody id="sales-body"></tbody>
       </table>
       <button class="show-more" id="sales-more" hidden>Mostrar más</button>
+    </section>
+
+    <!-- CAJA -->
+    <section id="tab-cash" class="tab">
+      <div class="toolbar">
+        <div class="segmented" id="cash-presets">
+          <button data-preset="today">Hoy</button>
+          <button data-preset="7d">7 días</button>
+          <button data-preset="30d" class="active">30 días</button>
+          <button data-preset="month">Este mes</button>
+          <button data-preset="all">Todo</button>
+        </div>
+        <label class="inline">Desde <input type="date" id="cash-from" /></label>
+        <label class="inline">Hasta <input type="date" id="cash-to" /></label>
+        <div class="toolbar-actions push-right">
+          <button id="cash-new-purchase">+ Compra</button>
+          <button class="primary" id="cash-new-sale">+ Venta</button>
+        </div>
+      </div>
+
+      <div class="cards">
+        <div class="card"><span>Ingresos por ventas</span><strong id="cash-income" class="money-in">$0</strong><small id="cash-income-count"></small></div>
+        <div class="card danger"><span>Egresos por compras</span><strong id="cash-expense" class="money-out">$0</strong><small id="cash-expense-count"></small></div>
+        <div class="card" id="cash-balance-card"><span>Saldo del periodo</span><strong id="cash-balance">$0</strong><small>Ingresos − egresos</small></div>
+      </div>
+
+      <div class="panel chart-panel">
+        <div class="panel-head">
+          <h2 id="cash-chart-title">Ingresos y egresos por día</h2>
+          <div class="legend"><span class="dot in"></span>Ingresos (ventas) <span class="dot out"></span>Egresos (compras)</div>
+        </div>
+        <div class="bar-chart grouped" id="cash-chart"></div>
+      </div>
+
+      <h2>Movimientos de caja</h2>
+      <table>
+        <thead>
+          <tr><th>Fecha</th><th>Concepto</th><th>Producto</th><th class="num">Cantidad</th><th class="num">Valor unit.</th><th class="num">Valor</th><th class="num">Saldo</th><th>Nota</th></tr>
+        </thead>
+        <tbody id="cash-body"></tbody>
+      </table>
+      <button class="show-more" id="cash-more" hidden>Mostrar más</button>
     </section>
 
     <!-- ALERTAS -->
@@ -131,7 +174,7 @@
       </div>
       <table>
         <thead>
-          <tr><th>SKU</th><th>Nombre</th><th>Categoría</th><th class="num">Precio</th><th class="num">Stock</th><th class="num">Mín.</th><th></th></tr>
+          <tr><th>SKU</th><th>Nombre</th><th>Categoría</th><th class="num">Costo</th><th class="num">Precio venta</th><th class="num">Stock</th><th class="num">Mín.</th><th></th></tr>
         </thead>
         <tbody id="products-body"></tbody>
       </table>
@@ -155,12 +198,15 @@
         <select id="movement-product-filter"><option value="">Todos los productos</option></select>
         <select id="movement-type-filter">
           <option value="">Todos los tipos</option>
-          <option value="IN">Entradas</option>
-          <option value="OUT">Salidas</option>
+          <option value="SALE">Ventas (salidas)</option>
+          <option value="IN">Compras (entradas)</option>
           <option value="ADJUST">Ajustes</option>
-          <option value="SALE">Ventas</option>
         </select>
-        <button class="primary" id="new-movement-btn">+ Registrar movimiento</button>
+        <div class="toolbar-actions push-right">
+          <button id="new-adjust-btn">Ajuste</button>
+          <button id="new-purchase-btn">+ Compra</button>
+          <button class="primary" id="new-movement-btn">+ Venta</button>
+        </div>
       </div>
       <table>
         <thead>
@@ -180,12 +226,16 @@
       <label>Nombre <input name="name" required maxlength="150" /></label>
       <label>Descripción <textarea name="description" rows="2"></textarea></label>
       <div class="row">
-        <label>Precio <input name="price" type="number" min="0" step="0.01" required /></label>
-        <label>Stock mínimo <input name="minStock" type="number" min="0" step="1" value="0" /></label>
+        <label>Costo de compra <input name="cost" type="number" min="0" step="0.01" placeholder="Lo que pagas al proveedor" /></label>
+        <label>Precio de venta <input name="price" type="number" min="0" step="0.01" required /></label>
       </div>
       <div class="row">
         <label>Categoría <select name="categoryId"><option value="">(Sin categoría)</option></select></label>
-        <label id="initial-stock-field">Stock inicial <input name="initialStock" type="number" min="0" step="1" value="0" /></label>
+        <label>Stock mínimo <input name="minStock" type="number" min="0" step="1" value="0" /></label>
+      </div>
+      <div class="row" id="initial-stock-field">
+        <label>Inventario inicial <input name="initialStock" type="number" min="0" step="1" value="0" /></label>
+        <p class="hint field-hint">Unidades que ya tienes. No cuenta como compra ni afecta la caja.</p>
       </div>
       <p class="error" id="product-error"></p>
       <div class="actions">
@@ -218,18 +268,18 @@
       <div class="row">
         <label>Tipo
           <select name="type">
-            <option value="SALE">Venta (−)</option>
-            <option value="IN">Entrada (+)</option>
-            <option value="OUT">Salida (−)</option>
+            <option value="SALE">Venta (salida)</option>
+            <option value="IN">Compra (entrada)</option>
             <option value="ADJUST">Ajuste (conteo físico)</option>
           </select>
         </label>
         <label><span id="quantity-label">Cantidad</span> <input name="quantity" type="number" min="0" step="1" required /></label>
       </div>
       <div class="row" id="sale-fields">
-        <label>Precio unitario <input name="unitPrice" type="number" min="0" step="0.01" /></label>
+        <label><span id="unit-price-label">Precio de venta unitario</span> <input name="unitPrice" type="number" min="0" step="0.01" /></label>
         <label><span id="sale-total-label">Total de la venta</span> <output id="sale-total" class="total-preview">$0</output></label>
       </div>
+      <p class="money-hint" id="money-hint"></p>
       <p class="hint" id="movement-hint"></p>
       <label><span id="reason-label">Motivo</span> <input name="reason" maxlength="255" placeholder="Ej: compra, merma, cliente…" /></label>
       <p class="error" id="movement-error"></p>

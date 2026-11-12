@@ -129,9 +129,9 @@ td.actions-cell { text-align: right; white-space: nowrap; }
 .sku { font-family: ui-monospace, Menlo, monospace; font-size: 13px; color: var(--muted); }
 
 .badge { display: inline-block; white-space: nowrap; padding: 2px 8px; border-radius: 999px; font-size: 12px; font-weight: 600; }
-.badge.IN { background: var(--primary-soft); color: var(--ok); }
-.badge.OUT { background: #f8e1de; color: var(--danger); }
-.badge.ADJUST { background: #e6e9e7; color: #4b524e; }
+.badge.IN, .badge.PURCHASE { background: #dde3df; color: #2b312e; }
+.badge.OUT { background: var(--primary); color: #fff; }
+.badge.ADJUST { background: #eef0ef; color: #6b726e; }
 .low { color: var(--warn); font-weight: 600; }
 
 dialog {
@@ -182,7 +182,30 @@ table.compact th, table.compact td { padding: 8px 6px; }
 .chart-empty { color: var(--muted); text-align: center; align-self: center; width: 100%; }
 
 .badge.SALE { background: var(--primary); color: #fff; }
-#tab-sales .badge.OUT { background: #e6e9e7; color: #4b524e; }
+
+/* ---------- Caja ---------- */
+.push-right { margin-left: auto; }
+.toolbar-actions .primary { margin-left: 0; }
+.money-in { color: var(--ok); }
+.money-out { color: var(--danger); }
+.card small { color: var(--muted); font-size: 12px; }
+.card.negative { border-left-color: var(--danger); }
+.card.negative strong { color: var(--danger); }
+.chart-panel { margin-top: 16px; }
+.panel-head { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; }
+.legend { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--muted); }
+.legend .dot { width: 10px; height: 10px; border-radius: 2px; display: inline-block; margin-left: 8px; }
+.legend .dot.in { background: var(--primary); }
+.legend .dot.out { background: #c9837a; }
+.bar-chart.grouped .bar-col { flex-direction: row; align-items: flex-end; justify-content: center; gap: 2px; }
+.bar-chart.grouped .bar { max-width: 14px; }
+.bar-chart.grouped .bar.out { background: #c9837a; }
+.bar-chart.grouped .bar-col:hover .bar.out { background: var(--danger); }
+.total-preview.money-out { color: var(--danger); }
+.money-hint { margin: -4px 0 0; font-size: 13px; font-weight: 600; }
+.money-hint.in { color: var(--ok); }
+.money-hint.out { color: var(--danger); }
+.field-hint { align-self: end; margin: 0 0 8px; }
 .total-preview { font-size: 20px; font-weight: 600; color: var(--primary-hover); padding: 6px 0; }
 .money { font-variant-numeric: tabular-nums; }
 

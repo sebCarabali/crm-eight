@@ -5,7 +5,7 @@ import { DAY_MS as DAY, HOUR_MS as HOUR, storeOffsetMs } from '../common/store-t
 import { Category } from '../categories/category.entity';
 import { MovementType, StockMovement } from '../movements/stock-movement.entity';
 import { Product } from '../products/product.entity';
-import { OUT_REASONS, SALE_NOTES, SEED_CATEGORIES } from './seed-data';
+import { costFor, SALE_NOTES, SEED_CATEGORIES, SUPPLIERS } from './seed-data';
 
 /** Generador pseudoaleatorio con semilla: los datos de prueba siempre salen iguales. */
 function mulberry32(seed: number) {
@@ -70,6 +70,7 @@ export class SeedService implements OnModuleInit {
     interface Tracked {
       id: number;
       price: number;
+      cost: number;
       minStock: number;
       target: number;
       popularity: number;
@@ -84,12 +85,14 @@ export class SeedService implements OnModuleInit {
         em.create(Category, { name: cat.name, description: cat.description, createdAt: historyStart }),
       );
       for (const p of cat.products) {
+        const cost = costFor(cat.name, p.price);
         const product = await em.save(
           em.create(Product, {
             sku: p.sku,
             name: p.name,
             description: null,
             price: p.price,
+            cost,
             minStock: p.minStock,
             stock: 0,
             category,
@@ -99,6 +102,7 @@ export class SeedService implements OnModuleInit {
         const t: Tracked = {
           id: product.id,
           price: p.price,
+          cost,
           minStock: p.minStock,
           target: p.stock,
           popularity: p.popularity,
@@ -107,7 +111,8 @@ export class SeedService implements OnModuleInit {
           stock: 0,
         };
         tracked.push(t);
-        this.push(movements, t, MovementType.IN, p.stock, historyStart, 'Inventario inicial', null);
+        // Inventario inicial: mercancía que ya se tenía; no es compra, no afecta la caja.
+        this.push(movements, t, MovementType.ADJUST, p.stock, historyStart, 'Inventario inicial', null);
       }
     }
 
@@ -120,12 +125,13 @@ export class SeedService implements OnModuleInit {
       const isToday = d === 0;
       const closing = isToday ? Math.min(now.getTime() - 60_000, dayStart + 21 * HOUR) : dayStart + 21 * HOUR;
 
-      // Compras a proveedor en la mañana: casi siempre se repone lo que está bajo.
+      // Compras a proveedor en la mañana (sale dinero): casi siempre se repone lo que está bajo.
       // En los últimos 2 días el proveedor no ha pasado, así quedan productos en stock bajo.
       for (const t of tracked) {
         if (d >= 2 && t.stock <= t.minStock && rand() < 0.75) {
           const qty = t.target - t.stock + between(0, Math.ceil(t.target / 4));
-          this.push(movements, t, MovementType.IN, qty, new Date(dayStart + 6 * HOUR + between(0, 59) * 60_000), 'Compra a proveedor', null);
+          const when = new Date(dayStart + 6 * HOUR + between(0, 59) * 60_000);
+          this.push(movements, t, MovementType.IN, qty, when, `Compra a ${pick(SUPPLIERS)}`, t.cost);
         }
       }
 
@@ -146,10 +152,8 @@ export class SeedService implements OnModuleInit {
         let qty = t.unitItem ? between(1, 6) : rand() < 0.75 ? 1 : between(2, 3);
         if (t.stock === 0) continue; // agotado: el cliente se va sin comprar
         qty = Math.min(qty, t.stock);
-        const isOut = rand() < 0.12;
-        const type = isOut ? MovementType.OUT : MovementType.SALE;
-        const reason = isOut ? pick(OUT_REASONS) : pick(SALE_NOTES) || null;
-        this.push(movements, t, type, qty, new Date(time), reason, t.price);
+        // Venta (salida): entra dinero
+        this.push(movements, t, MovementType.SALE, qty, new Date(time), pick(SALE_NOTES) || null, t.price);
       }
 
       // Hace 3 días, al cierre: un par de ajustes por conteo físico.
