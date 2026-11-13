@@ -144,4 +144,29 @@ export class Compra {
   creadoEn: Date;
 }
 
-export const ENTIDADES = [VentaMostrador, VentaCliente, Compra];
+/**
+ * Producto creado en la app: nombre y Cantidad (stock inicial), igual que un artículo de la hoja Inventario.
+ * Su stock se mueve con las compras y ventas registradas con el mismo nombre.
+ */
+@Entity('productos')
+export class Producto {
+  @PrimaryGeneratedColumn()
+  id: number;
+
+  /** Producto */
+  @Column({ length: 200 })
+  producto: string;
+
+  /** Interno: nombre normalizado (sin tildes, mayúsculas ni espacios extra) para evitar duplicados. */
+  @Column({ length: 200, unique: true })
+  clave: string;
+
+  /** Cantidad (stock inicial) */
+  @Column({ type: MONEY_COLUMN, default: 0 })
+  cantidad: number;
+
+  @CreateDateColumn()
+  creadoEn: Date;
+}
+
+export const ENTIDADES = [VentaMostrador, VentaCliente, Compra, Producto];

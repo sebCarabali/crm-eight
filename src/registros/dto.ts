@@ -121,6 +121,22 @@ export class CrearCompraDto {
 }
 export class ActualizarCompraDto extends PartialType(CrearCompraDto) {}
 
+// ---------- Productos ----------
+export class CrearProductoDto {
+  @ApiProperty({ example: 'Cerdito Alcancía' })
+  @Transform(limpiar)
+  @IsString()
+  @IsNotEmpty()
+  @MaxLength(200)
+  producto: string;
+
+  @ApiProperty({ example: 10, description: 'Cantidad (stock inicial)' })
+  @IsNumber()
+  @Min(0)
+  cantidad: number;
+}
+export class ActualizarProductoDto extends PartialType(CrearProductoDto) {}
+
 // ---------- Filtros ----------
 export class FiltroDto {
   @ApiPropertyOptional({ example: '2026-08-01', description: 'Desde (AAAA-MM-DD, inclusive)' })

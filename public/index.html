@@ -117,10 +117,11 @@
       <div class="toolbar">
         <input type="search" id="pr-q" placeholder="Buscar producto…" />
         <label class="check"><input type="checkbox" id="pr-negativos" /> Solo stock negativo</label>
+        <button class="primary push-right" data-nuevo="producto">+ Nuevo producto</button>
       </div>
       <p class="hint">Stock = Cantidad (hoja Inventario del Excel) + Comprado − Vendido. Comprado y Vendido cuentan solo lo registrado en la app.</p>
       <table>
-        <thead><tr><th>Producto</th><th class="num">Cantidad</th><th class="num">Comprado</th><th class="num">Vendido</th><th class="num">Stock</th></tr></thead>
+        <thead><tr><th>Producto</th><th class="num">Cantidad</th><th class="num">Comprado</th><th class="num">Vendido</th><th class="num">Stock</th><th></th></tr></thead>
         <tbody id="pr-body"></tbody>
       </table>
       <button class="show-more" id="pr-mas" hidden>Mostrar más</button>
@@ -243,6 +244,22 @@
       </div>
       <p class="total-line">Valor Total: <strong id="p-total" class="money-out">$0</strong></p>
       <p class="error" id="e-compra"></p>
+      <div class="actions">
+        <button type="button" data-close>Cancelar</button>
+        <button class="primary" type="submit">Guardar</button>
+      </div>
+    </form>
+  </dialog>
+
+  <!-- Formulario: producto -->
+  <dialog id="dlg-producto">
+    <form id="form-producto" method="dialog">
+      <h3 id="t-producto">Nuevo producto</h3>
+      <input type="hidden" name="id" />
+      <label>Producto <input name="producto" required maxlength="200" autocomplete="off" /></label>
+      <label>Cantidad <input name="cantidad" type="number" min="0" step="1" required /></label>
+      <p class="hint">Unidades que tienes hoy (stock inicial). Las compras y ventas con este nombre lo irán moviendo.</p>
+      <p class="error" id="e-producto"></p>
       <div class="actions">
         <button type="button" data-close>Cancelar</button>
         <button class="primary" type="submit">Guardar</button>

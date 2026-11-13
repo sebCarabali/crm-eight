@@ -3,7 +3,8 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { databaseOptions } from './common/database';
 import { InfoController } from './common/info.controller';
 import { ENTIDADES } from './registros/entidades';
-import { ComprasController, VentasClientesController, VentasMostradorController } from './registros/registros.controller';
+import { ComprasController, ProductosController, VentasClientesController, VentasMostradorController } from './registros/registros.controller';
+import { ProductosService } from './registros/productos.service';
 import { ComprasService, VentasClientesService, VentasMostradorService } from './registros/registros.service';
 import { ReportesController } from './reportes/reportes.controller';
 import { ReportesService } from './reportes/reportes.service';
@@ -23,8 +24,9 @@ import { CargaInicialService } from './seed/carga-inicial.service';
     VentasClientesController,
     ComprasController,
     ReportesController,
+    ProductosController,
     InfoController,
   ],
-  providers: [VentasMostradorService, VentasClientesService, ComprasService, ReportesService, CargaInicialService],
+  providers: [VentasMostradorService, VentasClientesService, ComprasService, ProductosService, ReportesService, CargaInicialService],
 })
 export class AppModule {}

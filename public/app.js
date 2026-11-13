@@ -265,8 +265,9 @@ async function cargarProductos() {
       <td>${esc(p.producto)}</td><td class="num">${num.format(p.cantidad)}</td>
       <td class="num">${num.format(p.comprado)}</td><td class="num">${num.format(p.vendido)}</td>
       <td class="num ${p.stock < 0 ? 'money-out' : p.stock === 0 ? 'low' : ''}"><strong>${num.format(p.stock)}</strong></td>
+      ${p.id ? acciones('producto', p.id) : '<td></td>'}
     </tr>`,
-    5,
+    6,
     'No hay productos con este filtro.',
   );
 }
@@ -375,6 +376,7 @@ const FORMS = {
   mostrador: { dlg: '#dlg-mostrador', form: '#form-mostrador', titulo: '#t-mostrador', error: '#e-mostrador', ruta: '/ventas-mostrador', nombre: 'venta de mostrador' },
   cliente: { dlg: '#dlg-cliente', form: '#form-cliente', titulo: '#t-cliente', error: '#e-cliente', ruta: '/ventas-clientes', nombre: 'venta a cliente' },
   compra: { dlg: '#dlg-compra', form: '#form-compra', titulo: '#t-compra', error: '#e-compra', ruta: '/compras', nombre: 'compra' },
+  producto: { dlg: '#dlg-producto', form: '#form-producto', titulo: '#t-producto', error: '#e-producto', ruta: '/productos', nombre: 'producto', masculino: true },
 };
 
 async function abrirForm(tipo, registro) {
@@ -383,13 +385,13 @@ async function abrirForm(tipo, registro) {
   const f = $(cfg.form);
   f.reset();
   $(cfg.error).textContent = '';
-  $(cfg.titulo).textContent = `${registro ? 'Editar' : 'Nueva'} ${cfg.nombre}`;
+  $(cfg.titulo).textContent = `${registro ? 'Editar' : cfg.masculino ? 'Nuevo' : 'Nueva'} ${cfg.nombre}`;
   f.elements.id.value = registro?.id ?? '';
   if (registro) {
     for (const el of f.elements) if (el.name && el.name !== 'id' && registro[el.name] !== undefined) el.value = registro[el.name];
   } else {
     const fecha = f.elements.fecha || f.elements.fechaFactura;
-    fecha.value = hoy();
+    if (fecha) fecha.value = hoy();
   }
   actualizarTotales();
   $(cfg.dlg).showModal();
@@ -402,7 +404,7 @@ document.addEventListener('click', async (e) => {
   try {
     if (nuevo) await abrirForm(nuevo);
     if (editar) await abrirForm(editar, await api(`${FORMS[editar].ruta}/${id}`));
-    if (borrar && confirmar(`¿Eliminar esta ${FORMS[borrar].nombre}?`)) {
+    if (borrar && confirmar(`¿Eliminar ${FORMS[borrar].masculino ? 'este' : 'esta'} ${FORMS[borrar].nombre}?`)) {
       await api(`${FORMS[borrar].ruta}/${id}`, { method: 'DELETE' });
       toast('Registro eliminado');
       CARGAS[state.tab]();

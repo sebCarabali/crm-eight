@@ -126,6 +126,53 @@ describe('Tienda: ventas, compras, stock, clientes y caja (e2e)', () => {
     expect(productos.find((p: { producto: string }) => p.producto.toLowerCase().startsWith('cerdito')).stock).toBe(-8);
   });
 
+  describe('agregar productos', () => {
+    let productoId: number;
+
+    it('crea un producto con su Cantidad como stock inicial', async () => {
+      const res = await http().post('/api/productos').send({ producto: 'Virgen  Guadalupe 20cm', cantidad: 12 }).expect(201);
+      productoId = res.body.id;
+      expect(res.body).toMatchObject({ producto: 'Virgen Guadalupe 20cm', cantidad: 12 });
+      const fila = (await http().get('/api/productos?q=guadalupe').expect(200)).body[0];
+      expect(fila).toMatchObject({ id: productoId, producto: 'Virgen Guadalupe 20cm', cantidad: 12, comprado: 0, vendido: 0, stock: 12 });
+    });
+
+    it('no permite nombres repetidos (sin importar mayúsculas, tildes ni espacios)', async () => {
+      await http().post('/api/productos').send({ producto: 'virgen guadalupe 20CM', cantidad: 1 }).expect(409);
+      // ya existe por las compras/ventas registradas
+      await http().post('/api/productos').send({ producto: 'PINTURAS', cantidad: 3 }).expect(409);
+    });
+
+    it('valida los datos', async () => {
+      await http().post('/api/productos').send({ producto: '', cantidad: 1 }).expect(400);
+      await http().post('/api/productos').send({ producto: 'Ángel', cantidad: -2 }).expect(400);
+    });
+
+    it('las ventas y compras con el mismo nombre mueven su stock', async () => {
+      await http()
+        .post('/api/ventas-mostrador')
+        .send({ fecha: '2026-11-12', producto: 'virgen guadalupe 20cm', cantidad: 4, valorUnitario: 9000 })
+        .expect(201);
+      const fila = (await http().get('/api/productos?q=guadalupe').expect(200)).body[0];
+      expect(fila).toMatchObject({ cantidad: 12, vendido: 4, stock: 8 });
+    });
+
+    it('edita el nombre y la cantidad', async () => {
+      const res = await http().patch(`/api/productos/${productoId}`).send({ cantidad: 20 }).expect(200);
+      expect(res.body.cantidad).toBe(20);
+      const fila = (await http().get('/api/productos?q=guadalupe').expect(200)).body[0];
+      expect(fila).toMatchObject({ cantidad: 20, stock: 16 });
+      await http().patch(`/api/productos/${productoId}`).send({ producto: 'Pinturas' }).expect(409);
+    });
+
+    it('elimina el producto creado (sus ventas siguen registradas)', async () => {
+      await http().delete(`/api/productos/${productoId}`).expect(204);
+      await http().get(`/api/productos/${productoId}`).expect(404);
+      const fila = (await http().get('/api/productos?q=guadalupe').expect(200)).body[0];
+      expect(fila).toMatchObject({ id: null, cantidad: 0, vendido: 4, stock: -4 });
+    });
+  });
+
   it('ofrece opciones para autocompletar', async () => {
     const res = await http().get('/api/opciones').expect(200);
     expect(res.body.clientes).toEqual(['Jhan Cifuentes', 'Leidy Potosí']);

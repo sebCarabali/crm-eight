@@ -2,7 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { FiltroDto } from '../registros/dto';
-import { Compra, VentaCliente, VentaMostrador } from '../registros/entidades';
+import { Compra, Producto, VentaCliente, VentaMostrador } from '../registros/entidades';
 
 const redondear = (n: number) => Math.round(n * 100) / 100;
 
@@ -22,6 +22,8 @@ export function claveProducto(nombre: string): string {
 const enRango = (fecha: string, f: FiltroDto) => (!f.desde || fecha >= f.desde) && (!f.hasta || fecha <= f.hasta);
 
 export interface ProductoStock {
+  /** Interno: id si el producto se creó en la app (permite editarlo o eliminarlo). */
+  id: number | null;
   producto: string;
   /** Cantidad del Excel (hoja Inventario): stock inicial. */
   cantidad: number;
@@ -64,16 +66,18 @@ export class ReportesService {
     @InjectRepository(VentaMostrador) private readonly mostrador: Repository<VentaMostrador>,
     @InjectRepository(VentaCliente) private readonly clientes: Repository<VentaCliente>,
     @InjectRepository(Compra) private readonly compras: Repository<Compra>,
+    @InjectRepository(Producto) private readonly productosCreados: Repository<Producto>,
   ) {}
 
   private async todo() {
     const orden = { id: 'ASC' } as const;
-    const [m, c, p] = await Promise.all([
+    const [m, c, p, creados] = await Promise.all([
       this.mostrador.find({ order: orden }),
       this.clientes.find({ order: orden }),
       this.compras.find({ order: orden }),
+      this.productosCreados.find({ order: orden }),
     ]);
-    return { mostrador: m, clientes: c, compras: p };
+    return { mostrador: m, clientes: c, compras: p, creados };
   }
 
   /**
@@ -84,19 +88,27 @@ export class ReportesService {
    * Incluye los productos del Inventario y los que tengan compras o ventas registradas en la app.
    */
   private async todosLosProductos(q?: string): Promise<(ProductoStock & { enStock: boolean })[]> {
-    const { mostrador, clientes, compras } = await this.todo();
-    type Fila = Omit<ProductoStock, 'producto' | 'stock'> & { nombres: Map<string, number>; enStock: boolean };
+    const { mostrador, clientes, compras, creados } = await this.todo();
+    type Fila = Omit<ProductoStock, 'producto' | 'stock'> & { nombres: Map<string, number>; enStock: boolean; nombreCreado?: string };
     const mapa = new Map<string, Fila>();
     const fila = (nombre: string) => {
       const clave = claveProducto(nombre);
       let p = mapa.get(clave);
       if (!p) {
-        p = { cantidad: 0, comprado: 0, vendido: 0, ultimoPrecioVenta: null, ultimoPrecioCompra: null, nombres: new Map(), enStock: false };
+        p = { id: null, cantidad: 0, comprado: 0, vendido: 0, ultimoPrecioVenta: null, ultimoPrecioCompra: null, nombres: new Map(), enStock: false };
         mapa.set(clave, p);
       }
       p.nombres.set(nombre, (p.nombres.get(nombre) ?? 0) + 1);
       return p;
     };
+    // Productos creados en la app: su Cantidad es stock inicial y su nombre es el que se muestra.
+    for (const pc of creados) {
+      const p = fila(pc.producto);
+      p.id = pc.id;
+      p.cantidad += pc.cantidad;
+      p.enStock = true;
+      p.nombreCreado = pc.producto;
+    }
     for (const c of compras) {
       const p = fila(c.descripcion);
       if (c.importado) p.cantidad += c.cantidad;
@@ -120,8 +132,9 @@ export class ReportesService {
     return [...mapa.entries()]
       .filter(([clave]) => !filtro || clave.includes(filtro))
       .map(([, p]) => ({
-        // Nombre a mostrar: la forma en que más se escribió.
-        producto: [...p.nombres.entries()].sort((a, b) => b[1] - a[1])[0][0],
+        id: p.id,
+        // Nombre a mostrar: el del producto creado o, si no, la forma en que más se escribió.
+        producto: p.nombreCreado ?? [...p.nombres.entries()].sort((a, b) => b[1] - a[1])[0][0],
         cantidad: p.cantidad,
         comprado: p.comprado,
         vendido: p.vendido,
@@ -131,6 +144,16 @@ export class ReportesService {
         enStock: p.enStock,
       }))
       .sort((a, b) => a.producto.localeCompare(b.producto, 'es'));
+  }
+
+  /** Nombres normalizados de todos los productos conocidos (compras, ventas y creados). */
+  async nombresConocidos(): Promise<Set<string>> {
+    const { mostrador, clientes, compras, creados } = await this.todo();
+    return new Set(
+      [...mostrador.map((v) => v.producto), ...clientes.map((v) => v.descripcion), ...compras.map((c) => c.descripcion), ...creados.map((p) => p.producto)].map(
+        claveProducto,
+      ),
+    );
   }
 
   /** Tabla de stock (sin los productos que solo aparecen en ventas importadas del Excel). */

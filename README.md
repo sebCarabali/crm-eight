@@ -25,6 +25,7 @@ Aplicación web para llevar las **ventas**, **compras**, **stock**, **clientes**
 - **Resumen clientes** se calcula igual que las fórmulas del Excel (`COUNTIF` / `SUMIF` sobre "Registro de Ventas") y en el mismo orden.
 - **Stock**: la **Cantidad** de la hoja Inventario es el stock inicial de cada producto. **Comprado** y **Vendido** empiezan en 0 y cuentan solo las compras y ventas registradas en la app; las ventas que vienen del Excel no descuentan del stock (sí cuentan en Ventas, Clientes y Caja). Stock = Cantidad + Comprado − Vendido; puede quedar negativo.
 - Los productos se agrupan por nombre, sin distinguir mayúsculas, tildes ni espacios extra ("Cerdito Alcancía" = "cerdito alcancia").
+- **Agregar productos**: en Productos → **+ Nuevo producto**, con nombre y Cantidad (stock inicial). No se permiten nombres repetidos. Los productos creados en la app se pueden editar y eliminar; los que vienen del Excel se ajustan editando sus compras.
 - Las fechas se guardan tal como vienen en el Excel.
 - En toda tabla hay buscador, filtro por fechas, fila de totales, y botones para editar y eliminar.
 
@@ -103,6 +104,8 @@ Las pruebas verifican que los datos cargados coinciden con el Excel: filas por h
 | GET/POST | `/api/compras` | Listar / crear |
 | GET/PATCH/DELETE | `/api/compras/:id` | Ver / editar / eliminar |
 | GET | `/api/productos?q=` | Stock por producto (Cantidad + Comprado − Vendido) |
+| POST | `/api/productos` | Crear producto `{ producto, cantidad }` |
+| GET/PATCH/DELETE | `/api/productos/:id` | Ver / editar / eliminar un producto creado en la app |
 | GET | `/api/clientes/resumen?desde=&hasta=&q=` | Resumen por cliente |
 | GET | `/api/caja?desde=&hasta=` | Ingresos, egresos, saldo y movimientos |
 | GET | `/api/resumen` | Datos de la pantalla de inicio |

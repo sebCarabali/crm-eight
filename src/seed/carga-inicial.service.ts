@@ -40,7 +40,7 @@ export class CargaInicialService implements OnModuleInit {
    */
   async protegerTablas() {
     if (!isPostgres()) return;
-    for (const tabla of ['ventas_mostrador', 'ventas_clientes', 'compras']) {
+    for (const tabla of ['ventas_mostrador', 'ventas_clientes', 'compras', 'productos']) {
       await this.dataSource.query(`ALTER TABLE "${tabla}" ENABLE ROW LEVEL SECURITY`);
     }
   }

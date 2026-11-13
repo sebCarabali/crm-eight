@@ -2,13 +2,16 @@ import { Body, Controller, Delete, Get, HttpCode, Param, ParseIntPipe, Patch, Po
 import { ApiTags } from '@nestjs/swagger';
 import {
   ActualizarCompraDto,
+  ActualizarProductoDto,
   ActualizarVentaClienteDto,
   ActualizarVentaMostradorDto,
   CrearCompraDto,
   CrearVentaClienteDto,
+  CrearProductoDto,
   CrearVentaMostradorDto,
   FiltroDto,
 } from './dto';
+import { ProductosService } from './productos.service';
 import { ComprasService, VentasClientesService, VentasMostradorService } from './registros.service';
 
 @ApiTags('ventas de mostrador')
@@ -48,6 +51,20 @@ export class ComprasController {
   @Get(':id') obtener(@Param('id', ParseIntPipe) id: number) { return this.service.obtener(id); }
   @Post() crear(@Body() dto: CrearCompraDto) { return this.service.crear(dto); }
   @Patch(':id') actualizar(@Param('id', ParseIntPipe) id: number, @Body() dto: ActualizarCompraDto) {
+    return this.service.actualizar(id, dto);
+  }
+  @Delete(':id') @HttpCode(204) eliminar(@Param('id', ParseIntPipe) id: number) { return this.service.eliminar(id); }
+}
+
+/** Crear, editar y eliminar productos (la lista con el stock está en GET /api/productos). */
+@ApiTags('productos')
+@Controller('productos')
+export class ProductosController {
+  constructor(private readonly service: ProductosService) {}
+
+  @Get(':id') obtener(@Param('id', ParseIntPipe) id: number) { return this.service.obtener(id); }
+  @Post() crear(@Body() dto: CrearProductoDto) { return this.service.crear(dto); }
+  @Patch(':id') actualizar(@Param('id', ParseIntPipe) id: number, @Body() dto: ActualizarProductoDto) {
     return this.service.actualizar(id, dto);
   }
   @Delete(':id') @HttpCode(204) eliminar(@Param('id', ParseIntPipe) id: number) { return this.service.eliminar(id); }
