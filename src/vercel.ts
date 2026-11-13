@@ -21,7 +21,21 @@ async function createServer(): Promise<Handler> {
   return app.getHttpAdapter().getInstance();
 }
 
+/**
+ * Los rewrites de Vercel pueden agregar los parámetros capturados (p. ej. `path=…`) a la URL.
+ * La API valida estrictamente los parámetros, así que se quitan antes de pasar la petición a Nest.
+ */
+export function stripRewriteParams(url: string | undefined): string | undefined {
+  if (!url || !url.includes('?')) return url;
+  const [pathname, query] = url.split('?', 2);
+  const params = new URLSearchParams(query);
+  for (const key of ['path', '0', '1']) params.delete(key);
+  const rest = params.toString();
+  return rest ? `${pathname}?${rest}` : pathname;
+}
+
 export default async function handler(req: IncomingMessage, res: ServerResponse) {
+  req.url = stripRewriteParams(req.url);
   server ??= createServer().catch((err) => {
     server = undefined; // reintentar en la próxima petición
     throw err;
