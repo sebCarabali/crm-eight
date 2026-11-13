@@ -1,0 +1,236 @@
+import { Injectable } from '@nestjs/common';
+import { InjectRepository } from '@nestjs/typeorm';
+import { Repository } from 'typeorm';
+import { FiltroDto } from '../registros/dto';
+import { Compra, VentaCliente, VentaMostrador } from '../registros/entidades';
+
+const redondear = (n: number) => Math.round(n * 100) / 100;
+
+/**
+ * Clave para agrupar productos con el mismo nombre aunque cambien mayúsculas, tildes o espacios
+ * ("Cerdito Alcancía" = "cerdito alcancia").
+ */
+export function claveProducto(nombre: string): string {
+  return nombre
+    .normalize('NFD')
+    .replace(/[̀-ͯ]/g, '')
+    .toLowerCase()
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+const enRango = (fecha: string, f: FiltroDto) => (!f.desde || fecha >= f.desde) && (!f.hasta || fecha <= f.hasta);
+
+export interface ProductoStock {
+  producto: string;
+  comprado: number;
+  vendido: number;
+  stock: number;
+  /** Interno (no se muestra): último precio de venta, para proponerlo al registrar una venta. */
+  ultimoPrecioVenta: number | null;
+  /** Interno (no se muestra): último precio de compra. */
+  ultimoPrecioCompra: number | null;
+}
+
+export interface ResumenCliente {
+  cliente: string;
+  cantidadCompras: number;
+  unidadesCompradas: number;
+  totalComprado: number;
+}
+
+export type ConceptoCaja = 'VENTA_MOSTRADOR' | 'VENTA_CLIENTE' | 'COMPRA';
+
+export interface MovimientoCaja {
+  id: number;
+  concepto: ConceptoCaja;
+  fecha: string;
+  detalle: string;
+  tercero: string;
+  pago: string;
+  cantidad: number;
+  valor: number;
+  saldo: number;
+}
+
+@Injectable()
+export class ReportesService {
+  constructor(
+    @InjectRepository(VentaMostrador) private readonly mostrador: Repository<VentaMostrador>,
+    @InjectRepository(VentaCliente) private readonly clientes: Repository<VentaCliente>,
+    @InjectRepository(Compra) private readonly compras: Repository<Compra>,
+  ) {}
+
+  private async todo() {
+    const orden = { id: 'ASC' } as const;
+    const [m, c, p] = await Promise.all([
+      this.mostrador.find({ order: orden }),
+      this.clientes.find({ order: orden }),
+      this.compras.find({ order: orden }),
+    ]);
+    return { mostrador: m, clientes: c, compras: p };
+  }
+
+  /** Stock por producto = unidades compradas − unidades vendidas (mostrador + clientes). Puede ser negativo. */
+  async productos(q?: string): Promise<ProductoStock[]> {
+    const { mostrador, clientes, compras } = await this.todo();
+    const mapa = new Map<string, ProductoStock & { nombres: Map<string, number> }>();
+    const fila = (nombre: string) => {
+      const clave = claveProducto(nombre);
+      let p = mapa.get(clave);
+      if (!p) {
+        p = { producto: nombre, comprado: 0, vendido: 0, stock: 0, ultimoPrecioVenta: null, ultimoPrecioCompra: null, nombres: new Map() };
+        mapa.set(clave, p);
+      }
+      p.nombres.set(nombre, (p.nombres.get(nombre) ?? 0) + 1);
+      return p;
+    };
+    for (const c of compras) {
+      const p = fila(c.descripcion);
+      p.comprado += c.cantidad;
+      p.ultimoPrecioCompra = c.precioUnitario;
+    }
+    // Ventas en orden de fecha, para quedarse con el último precio.
+    const ventas = [
+      ...mostrador.map((v) => ({ nombre: v.producto, fecha: v.fecha, cantidad: v.cantidad, precio: v.valorUnitario })),
+      ...clientes.map((v) => ({ nombre: v.descripcion, fecha: v.fecha, cantidad: v.cantidad, precio: v.precioUnitario })),
+    ].sort((a, b) => a.fecha.localeCompare(b.fecha));
+    for (const v of ventas) {
+      const p = fila(v.nombre);
+      p.vendido += v.cantidad;
+      p.ultimoPrecioVenta = v.precio;
+    }
+    const filtro = q ? claveProducto(q) : '';
+    return [...mapa.entries()]
+      .filter(([clave]) => !filtro || clave.includes(filtro))
+      .map(([, p]) => {
+        // Nombre a mostrar: la forma en que más se escribió.
+        const producto = [...p.nombres.entries()].sort((a, b) => b[1] - a[1])[0][0];
+        return {
+          producto,
+          comprado: p.comprado,
+          vendido: p.vendido,
+          stock: p.comprado - p.vendido,
+          ultimoPrecioVenta: p.ultimoPrecioVenta,
+          ultimoPrecioCompra: p.ultimoPrecioCompra,
+        };
+      })
+      .sort((a, b) => a.producto.localeCompare(b.producto, 'es'));
+  }
+
+  /**
+   * Hoja "Resumen clientes": por cliente, Cantidad de compras (filas), Unidades compradas y Total comprado.
+   * Mismo orden del Excel (primera aparición).
+   */
+  async resumenClientes(filtro: FiltroDto = {}): Promise<ResumenCliente[]> {
+    const ventas = await this.clientes.find({ order: { id: 'ASC' } });
+    const mapa = new Map<string, ResumenCliente>();
+    for (const v of ventas) {
+      if (!enRango(v.fecha, filtro)) continue;
+      const r = mapa.get(v.cliente) ?? { cliente: v.cliente, cantidadCompras: 0, unidadesCompradas: 0, totalComprado: 0 };
+      r.cantidadCompras += 1;
+      r.unidadesCompradas += v.cantidad;
+      r.totalComprado = redondear(r.totalComprado + v.valorTotal);
+      mapa.set(v.cliente, r);
+    }
+    const lista = [...mapa.values()];
+    return filtro.q ? lista.filter((r) => claveProducto(r.cliente).includes(claveProducto(filtro.q!))) : lista;
+  }
+
+  /** Caja: ventas (mostrador + clientes) suman, compras restan. Saldo acumulado por fecha. */
+  async caja(filtro: FiltroDto = {}) {
+    const { mostrador, clientes, compras } = await this.todo();
+    const movimientos: Omit<MovimientoCaja, 'saldo'>[] = [
+      ...mostrador.map((v) => ({
+        id: v.id,
+        concepto: 'VENTA_MOSTRADOR' as const,
+        fecha: v.fecha,
+        detalle: v.producto,
+        tercero: '',
+        pago: v.pagoNequi > 0 && v.pagoEfectivo > 0 ? 'Efectivo + Nequi' : v.pagoNequi > 0 ? 'Nequi' : 'Efectivo',
+        cantidad: v.cantidad,
+        valor: v.valorTotal,
+      })),
+      ...clientes.map((v) => ({
+        id: v.id,
+        concepto: 'VENTA_CLIENTE' as const,
+        fecha: v.fecha,
+        detalle: v.descripcion,
+        tercero: v.cliente,
+        pago: v.condicionesPago,
+        cantidad: v.cantidad,
+        valor: v.valorTotal,
+      })),
+      ...compras.map((c) => ({
+        id: c.id,
+        concepto: 'COMPRA' as const,
+        fecha: c.fechaFactura,
+        detalle: c.descripcion,
+        tercero: c.proveedor,
+        pago: '',
+        cantidad: c.cantidad,
+        valor: -c.valorTotal,
+      })),
+    ]
+      .filter((m) => enRango(m.fecha, filtro))
+      .sort((a, b) => a.fecha.localeCompare(b.fecha) || a.concepto.localeCompare(b.concepto) || a.id - b.id);
+
+    let saldo = 0;
+    const totales = { ventasMostrador: 0, ventasClientes: 0, efectivo: 0, nequi: 0, compras: 0 };
+    for (const v of mostrador) {
+      if (!enRango(v.fecha, filtro)) continue;
+      totales.efectivo += v.pagoEfectivo;
+      totales.nequi += v.pagoNequi;
+    }
+    const conSaldo: MovimientoCaja[] = movimientos.map((m) => {
+      saldo = redondear(saldo + m.valor);
+      if (m.concepto === 'VENTA_MOSTRADOR') totales.ventasMostrador += m.valor;
+      if (m.concepto === 'VENTA_CLIENTE') totales.ventasClientes += m.valor;
+      if (m.concepto === 'COMPRA') totales.compras += -m.valor;
+      return { ...m, saldo };
+    });
+    const ingresos = totales.ventasMostrador + totales.ventasClientes;
+    return {
+      totales: {
+        ingresos: redondear(ingresos),
+        ventasMostrador: redondear(totales.ventasMostrador),
+        ventasClientes: redondear(totales.ventasClientes),
+        efectivo: redondear(totales.efectivo),
+        nequi: redondear(totales.nequi),
+        egresos: redondear(totales.compras),
+        saldo: redondear(ingresos - totales.compras),
+      },
+      movimientos: conSaldo.reverse(),
+    };
+  }
+
+  /** Datos para la pantalla de inicio. */
+  async resumen() {
+    const [caja, productos, clientes] = await Promise.all([this.caja(), this.productos(), this.resumenClientes()]);
+    const masVendidos = [...productos].sort((a, b) => b.vendido - a.vendido).slice(0, 8);
+    const mejoresClientes = [...clientes].sort((a, b) => b.totalComprado - a.totalComprado).slice(0, 5);
+    return {
+      totales: caja.totales,
+      productos: productos.length,
+      productosStockNegativo: productos.filter((p) => p.stock < 0).length,
+      clientes: clientes.length,
+      masVendidos: masVendidos.map(({ producto, vendido }) => ({ producto, vendido })),
+      mejoresClientes,
+    };
+  }
+
+  /** Valores ya usados, para autocompletar los formularios. */
+  async opciones() {
+    const { mostrador, clientes, compras } = await this.todo();
+    const unicos = (valores: string[]) => [...new Set(valores.filter(Boolean))].sort((a, b) => a.localeCompare(b, 'es'));
+    const productos = await this.productos();
+    return {
+      productos: productos.map((p) => ({ producto: p.producto, precioVenta: p.ultimoPrecioVenta, precioCompra: p.ultimoPrecioCompra })),
+      clientes: unicos(clientes.map((c) => c.cliente)),
+      condicionesPago: unicos(['Contado', 'Nequi', 'Transferencia', ...clientes.map((c) => c.condicionesPago)]),
+      proveedores: unicos(compras.map((c) => c.proveedor)),
+      destinos: unicos(compras.map((c) => c.clienteDestino)),
+      totalRegistros: mostrador.length + clientes.length + compras.length,
+    };
+  }
+}

@@ -11,237 +11,190 @@
   <header class="topbar">
     <h1>📦 Inventario</h1>
     <nav class="tabs">
-      <button data-tab="dashboard" class="active">Resumen</button>
-      <button data-tab="sales">Ventas</button>
-      <button data-tab="cash">Caja</button>
-      <button data-tab="alerts">Alertas <span class="nav-badge" id="alerts-badge" hidden>0</span></button>
-      <button data-tab="products">Productos</button>
-      <button data-tab="categories">Categorías</button>
-      <button data-tab="movements">Movimientos</button>
+      <button data-tab="resumen" class="active">Resumen</button>
+      <button data-tab="ventas">Ventas</button>
+      <button data-tab="compras">Compras</button>
+      <button data-tab="productos">Productos</button>
+      <button data-tab="clientes">Clientes</button>
+      <button data-tab="caja">Caja</button>
     </nav>
   </header>
 
   <div class="demo-banner" id="demo-banner" hidden>
-    Modo demo: los datos son de prueba y se reinician periódicamente. Para guardarlos de forma permanente, conecta una base de datos PostgreSQL.
+    Modo demo: los datos se reinician periódicamente. Para guardarlos de forma permanente, conecta la base de datos (Supabase).
   </div>
 
   <main>
     <!-- RESUMEN -->
-    <section id="tab-dashboard" class="tab active">
-      <div class="alert-banner" id="dashboard-alert-banner" hidden>
-        <span>🔔 <strong id="banner-count">0</strong> alerta(s) de stock pendientes hoy: productos a 2 unidades o menos de su mínimo.</span>
-        <button class="primary" data-goto="alerts">Ver alertas</button>
-      </div>
+    <section id="tab-resumen" class="tab active">
       <div class="cards">
-        <div class="card"><span>Ventas de hoy</span><strong id="sum-sales-today">$0</strong></div>
-        <div class="card"><span>Productos</span><strong id="sum-products">0</strong></div>
-        <div class="card" id="sum-balance-card"><span>Saldo del mes</span><strong id="sum-balance-month">$0</strong></div>
-        <div class="card"><span>Valor del inventario</span><strong id="sum-value">$0</strong></div>
-        <div class="card warn"><span>Con stock bajo</span><strong id="sum-low">0</strong></div>
+        <div class="card"><span>Total vendido</span><strong id="r-ingresos" class="money-in">$0</strong><small id="r-ingresos-det"></small></div>
+        <div class="card danger"><span>Total compras</span><strong id="r-egresos" class="money-out">$0</strong></div>
+        <div class="card" id="r-saldo-card"><span>Saldo</span><strong id="r-saldo">$0</strong><small>Ventas − compras</small></div>
+        <div class="card"><span>Clientes</span><strong id="r-clientes">0</strong></div>
+        <div class="card warn"><span>Productos con stock negativo</span><strong id="r-negativos">0</strong><small id="r-productos"></small></div>
       </div>
-      <h2>Productos con stock bajo</h2>
-      <table>
-        <thead><tr><th>Producto</th><th class="num">Stock</th><th class="num">Mínimo</th><th></th></tr></thead>
-        <tbody id="low-stock-body"></tbody>
-      </table>
-    </section>
-
-    <!-- VENTAS -->
-    <section id="tab-sales" class="tab">
-      <div class="toolbar">
-        <div class="segmented" id="sales-presets">
-          <button data-preset="today">Hoy</button>
-          <button data-preset="7d">7 días</button>
-          <button data-preset="30d" class="active">30 días</button>
-          <button data-preset="month">Este mes</button>
-          <button data-preset="all">Todo</button>
-        </div>
-        <label class="inline">Desde <input type="date" id="sales-from" /></label>
-        <label class="inline">Hasta <input type="date" id="sales-to" /></label>
-        <select id="sales-product-filter"><option value="">Todos los productos</option></select>
-        <button class="primary" id="new-sale-btn">+ Nueva venta</button>
-      </div>
-
-      <div class="cards">
-        <div class="card"><span>Total vendido</span><strong id="sales-revenue">$0</strong></div>
-        <div class="card"><span>Número de ventas</span><strong id="sales-count">0</strong></div>
-        <div class="card"><span>Unidades vendidas</span><strong id="sales-units">0</strong></div>
-        <div class="card"><span>Ticket promedio</span><strong id="sales-avg">$0</strong></div>
-      </div>
-
       <div class="grid-2">
-        <div class="panel">
-          <h2 id="sales-chart-title">Ventas por día</h2>
-          <div class="bar-chart" id="sales-chart"></div>
-        </div>
         <div class="panel">
           <h2>Productos más vendidos</h2>
           <table class="compact">
-            <thead><tr><th>Producto</th><th class="num">Unid.</th><th class="num">Total</th></tr></thead>
-            <tbody id="top-products-body"></tbody>
+            <thead><tr><th>Producto</th><th class="num">Unidades</th></tr></thead>
+            <tbody id="r-mas-vendidos"></tbody>
+          </table>
+        </div>
+        <div class="panel">
+          <h2>Mejores clientes</h2>
+          <table class="compact">
+            <thead><tr><th>Cliente</th><th class="num">Total comprado</th></tr></thead>
+            <tbody id="r-mejores-clientes"></tbody>
           </table>
         </div>
       </div>
-
-      <h2>Detalle de ventas</h2>
-      <table>
-        <thead>
-          <tr><th>Fecha</th><th>Producto</th><th class="num">Cantidad</th><th class="num">Precio unit.</th><th class="num">Total</th><th>Nota</th></tr>
-        </thead>
-        <tbody id="sales-body"></tbody>
-      </table>
-      <button class="show-more" id="sales-more" hidden>Mostrar más</button>
     </section>
 
-    <!-- CAJA -->
-    <section id="tab-cash" class="tab">
+    <!-- VENTAS -->
+    <section id="tab-ventas" class="tab">
+      <div class="subtabs" id="ventas-subtabs">
+        <button data-sub="mostrador" class="active">Ventas de mostrador</button>
+        <button data-sub="clientes">Ventas a clientes</button>
+      </div>
+
+      <div id="sub-mostrador" class="sub active">
+        <div class="toolbar">
+          <input type="search" id="vm-q" placeholder="Buscar producto…" />
+          <label class="inline">Desde <input type="date" id="vm-desde" /></label>
+          <label class="inline">Hasta <input type="date" id="vm-hasta" /></label>
+          <button class="primary push-right" data-nuevo="mostrador">+ Nueva venta</button>
+        </div>
+        <table>
+          <thead>
+            <tr><th>Fecha</th><th>Objeto / Producto</th><th class="num">Cantidad</th><th class="num">Valor Unitario</th><th class="num">Valor Total</th><th class="num">Pago Efectivo</th><th class="num">Pago Nequi</th><th></th></tr>
+          </thead>
+          <tbody id="vm-body"></tbody>
+          <tfoot id="vm-foot"></tfoot>
+        </table>
+        <button class="show-more" id="vm-mas" hidden>Mostrar más</button>
+      </div>
+
+      <div id="sub-clientes" class="sub">
+        <div class="toolbar">
+          <input type="search" id="vc-q" placeholder="Buscar cliente, artículo o pago…" />
+          <label class="inline">Desde <input type="date" id="vc-desde" /></label>
+          <label class="inline">Hasta <input type="date" id="vc-hasta" /></label>
+          <button class="primary push-right" data-nuevo="cliente">+ Nueva venta a cliente</button>
+        </div>
+        <table>
+          <thead>
+            <tr><th>Cliente</th><th>Fecha</th><th>Condiciones / Pago</th><th class="num">Cantidad</th><th>Descripción del Artículo</th><th class="num">Precio Unitario</th><th class="num">Valor Total</th><th></th></tr>
+          </thead>
+          <tbody id="vc-body"></tbody>
+          <tfoot id="vc-foot"></tfoot>
+        </table>
+        <button class="show-more" id="vc-mas" hidden>Mostrar más</button>
+      </div>
+    </section>
+
+    <!-- COMPRAS (hoja Inventario) -->
+    <section id="tab-compras" class="tab">
       <div class="toolbar">
-        <div class="segmented" id="cash-presets">
-          <button data-preset="today">Hoy</button>
-          <button data-preset="7d">7 días</button>
-          <button data-preset="30d" class="active">30 días</button>
-          <button data-preset="month">Este mes</button>
-          <button data-preset="all">Todo</button>
-        </div>
-        <label class="inline">Desde <input type="date" id="cash-from" /></label>
-        <label class="inline">Hasta <input type="date" id="cash-to" /></label>
-        <div class="toolbar-actions push-right">
-          <button id="cash-new-purchase">+ Compra</button>
-          <button class="primary" id="cash-new-sale">+ Venta</button>
-        </div>
+        <input type="search" id="co-q" placeholder="Buscar proveedor, artículo o destino…" />
+        <label class="inline">Desde <input type="date" id="co-desde" /></label>
+        <label class="inline">Hasta <input type="date" id="co-hasta" /></label>
+        <button class="primary push-right" data-nuevo="compra">+ Nueva compra</button>
       </div>
-
-      <div class="cards">
-        <div class="card"><span>Ingresos por ventas</span><strong id="cash-income" class="money-in">$0</strong><small id="cash-income-count"></small></div>
-        <div class="card danger"><span>Egresos por compras</span><strong id="cash-expense" class="money-out">$0</strong><small id="cash-expense-count"></small></div>
-        <div class="card" id="cash-balance-card"><span>Saldo del periodo</span><strong id="cash-balance">$0</strong><small>Ingresos − egresos</small></div>
-      </div>
-
-      <div class="panel chart-panel">
-        <div class="panel-head">
-          <h2 id="cash-chart-title">Ingresos y egresos por día</h2>
-          <div class="legend"><span class="dot in"></span>Ingresos (ventas) <span class="dot out"></span>Egresos (compras)</div>
-        </div>
-        <div class="bar-chart grouped" id="cash-chart"></div>
-      </div>
-
-      <h2>Movimientos de caja</h2>
       <table>
         <thead>
-          <tr><th>Fecha</th><th>Concepto</th><th>Producto</th><th class="num">Cantidad</th><th class="num">Valor unit.</th><th class="num">Valor</th><th class="num">Saldo</th><th>Nota</th></tr>
+          <tr><th>Proveedor</th><th>Fecha Factura</th><th>Cliente / Destino</th><th class="num">Cantidad</th><th>Descripción del Artículo</th><th class="num">Precio Unitario</th><th class="num">Valor Total</th><th></th></tr>
         </thead>
-        <tbody id="cash-body"></tbody>
+        <tbody id="co-body"></tbody>
+        <tfoot id="co-foot"></tfoot>
       </table>
-      <button class="show-more" id="cash-more" hidden>Mostrar más</button>
-    </section>
-
-    <!-- ALERTAS -->
-    <section id="tab-alerts" class="tab">
-      <div class="alerts-header">
-        <div>
-          <h2 id="alerts-title">Alertas de hoy</h2>
-          <p class="hint" id="alerts-subtitle"></p>
-        </div>
-        <div class="toolbar-actions">
-          <label class="check"><input id="alerts-hide-resolved" type="checkbox" /> Ocultar atendidas</label>
-          <button id="alerts-generate-btn">↻ Actualizar ahora</button>
-        </div>
-      </div>
-
-      <div class="day-chips" id="alerts-days"></div>
-
-      <div class="cards">
-        <div class="card"><span>Pendientes</span><strong id="alerts-pending">0</strong></div>
-        <div class="card danger"><span>Agotados</span><strong id="alerts-out">0</strong></div>
-        <div class="card warn"><span>Bajo el mínimo</span><strong id="alerts-below">0</strong></div>
-        <div class="card info"><span>Cerca del mínimo (≤ +2)</span><strong id="alerts-near">0</strong></div>
-      </div>
-
-      <table class="alerts-table">
-        <thead>
-          <tr>
-            <th>Nivel</th><th>Producto</th><th>Categoría</th>
-            <th class="num">Stock</th><th class="num">Mínimo</th><th class="num">Sugerido pedir</th><th></th>
-          </tr>
-        </thead>
-        <tbody id="alerts-body"></tbody>
-      </table>
+      <button class="show-more" id="co-mas" hidden>Mostrar más</button>
     </section>
 
     <!-- PRODUCTOS -->
-    <section id="tab-products" class="tab">
+    <section id="tab-productos" class="tab">
       <div class="toolbar">
-        <input id="product-search" type="search" placeholder="Buscar por nombre o SKU…" />
-        <select id="product-category-filter"><option value="">Todas las categorías</option></select>
-        <label class="check"><input id="product-low-filter" type="checkbox" /> Solo stock bajo</label>
-        <button class="primary" id="new-product-btn">+ Nuevo producto</button>
+        <input type="search" id="pr-q" placeholder="Buscar producto…" />
+        <label class="check"><input type="checkbox" id="pr-negativos" /> Solo stock negativo</label>
+      </div>
+      <p class="hint">Stock = unidades compradas − unidades vendidas (mostrador y clientes), por nombre de producto.</p>
+      <table>
+        <thead><tr><th>Producto</th><th class="num">Comprado</th><th class="num">Vendido</th><th class="num">Stock</th></tr></thead>
+        <tbody id="pr-body"></tbody>
+      </table>
+      <button class="show-more" id="pr-mas" hidden>Mostrar más</button>
+    </section>
+
+    <!-- CLIENTES (hoja Resumen clientes) -->
+    <section id="tab-clientes" class="tab">
+      <div class="toolbar">
+        <input type="search" id="cl-q" placeholder="Buscar cliente…" />
+        <label class="inline">Desde <input type="date" id="cl-desde" /></label>
+        <label class="inline">Hasta <input type="date" id="cl-hasta" /></label>
       </div>
       <table>
-        <thead>
-          <tr><th>SKU</th><th>Nombre</th><th>Categoría</th><th class="num">Costo</th><th class="num">Precio venta</th><th class="num">Stock</th><th class="num">Mín.</th><th></th></tr>
-        </thead>
-        <tbody id="products-body"></tbody>
+        <thead><tr><th>Cliente</th><th class="num">Cantidad de compras</th><th class="num">Unidades compradas</th><th class="num">Total comprado</th></tr></thead>
+        <tbody id="cl-body"></tbody>
+        <tfoot id="cl-foot"></tfoot>
       </table>
     </section>
 
-    <!-- CATEGORÍAS -->
-    <section id="tab-categories" class="tab">
+    <!-- CAJA -->
+    <section id="tab-caja" class="tab">
       <div class="toolbar">
-        <span></span>
-        <button class="primary" id="new-category-btn">+ Nueva categoría</button>
-      </div>
-      <table>
-        <thead><tr><th>Nombre</th><th>Descripción</th><th class="num">Productos</th><th></th></tr></thead>
-        <tbody id="categories-body"></tbody>
-      </table>
-    </section>
-
-    <!-- MOVIMIENTOS -->
-    <section id="tab-movements" class="tab">
-      <div class="toolbar">
-        <select id="movement-product-filter"><option value="">Todos los productos</option></select>
-        <select id="movement-type-filter">
-          <option value="">Todos los tipos</option>
-          <option value="SALE">Ventas (salidas)</option>
-          <option value="IN">Compras (entradas)</option>
-          <option value="ADJUST">Ajustes</option>
-        </select>
+        <label class="inline">Desde <input type="date" id="ca-desde" /></label>
+        <label class="inline">Hasta <input type="date" id="ca-hasta" /></label>
         <div class="toolbar-actions push-right">
-          <button id="new-adjust-btn">Ajuste</button>
-          <button id="new-purchase-btn">+ Compra</button>
-          <button class="primary" id="new-movement-btn">+ Venta</button>
+          <button data-nuevo="compra">+ Compra</button>
+          <button class="primary" data-nuevo="mostrador">+ Venta</button>
         </div>
       </div>
+      <div class="cards">
+        <div class="card"><span>Ingresos por ventas</span><strong id="ca-ingresos" class="money-in">$0</strong><small id="ca-ingresos-det"></small></div>
+        <div class="card"><span>Mostrador: efectivo / Nequi</span><strong id="ca-pagos" class="small-strong">$0</strong></div>
+        <div class="card danger"><span>Egresos por compras</span><strong id="ca-egresos" class="money-out">$0</strong></div>
+        <div class="card" id="ca-saldo-card"><span>Saldo</span><strong id="ca-saldo">$0</strong><small>Ingresos − egresos</small></div>
+      </div>
+      <div class="panel chart-panel">
+        <div class="panel-head">
+          <h2 id="ca-chart-title">Ingresos y egresos</h2>
+          <div class="legend"><span class="dot in"></span>Ingresos (ventas) <span class="dot out"></span>Egresos (compras)</div>
+        </div>
+        <div class="bar-chart grouped" id="ca-chart"></div>
+      </div>
+      <h2>Movimientos de caja</h2>
       <table>
-        <thead>
-          <tr><th>Fecha</th><th>Producto</th><th>Tipo</th><th class="num">Cantidad</th><th class="num">Stock final</th><th>Motivo</th></tr>
-        </thead>
-        <tbody id="movements-body"></tbody>
+        <thead><tr><th>Fecha</th><th>Concepto</th><th>Detalle</th><th>Cliente / Proveedor</th><th>Pago</th><th class="num">Valor</th><th class="num">Saldo</th></tr></thead>
+        <tbody id="ca-body"></tbody>
       </table>
+      <button class="show-more" id="ca-mas" hidden>Mostrar más</button>
     </section>
   </main>
 
-  <!-- Modal producto -->
-  <dialog id="product-dialog">
-    <form id="product-form" method="dialog">
-      <h3 id="product-dialog-title">Nuevo producto</h3>
+  <!-- Formulario: venta de mostrador -->
+  <dialog id="dlg-mostrador">
+    <form id="form-mostrador" method="dialog">
+      <h3 id="t-mostrador">Nueva venta de mostrador</h3>
       <input type="hidden" name="id" />
-      <label>SKU <input name="sku" required maxlength="50" /></label>
-      <label>Nombre <input name="name" required maxlength="150" /></label>
-      <label>Descripción <textarea name="description" rows="2"></textarea></label>
       <div class="row">
-        <label>Costo de compra <input name="cost" type="number" min="0" step="0.01" placeholder="Lo que pagas al proveedor" /></label>
-        <label>Precio de venta <input name="price" type="number" min="0" step="0.01" required /></label>
+        <label>Fecha <input name="fecha" type="date" required /></label>
+        <label>Objeto / Producto <input name="producto" list="dl-productos" required maxlength="200" autocomplete="off" /></label>
       </div>
       <div class="row">
-        <label>Categoría <select name="categoryId"><option value="">(Sin categoría)</option></select></label>
-        <label>Stock mínimo <input name="minStock" type="number" min="0" step="1" value="0" /></label>
+        <label>Cantidad <input name="cantidad" type="number" min="1" step="1" required /></label>
+        <label>Valor Unitario <input name="valorUnitario" type="number" min="0" step="any" required /></label>
       </div>
-      <div class="row" id="initial-stock-field">
-        <label>Inventario inicial <input name="initialStock" type="number" min="0" step="1" value="0" /></label>
-        <p class="hint field-hint">Unidades que ya tienes. No cuenta como compra ni afecta la caja.</p>
+      <p class="total-line">Valor Total: <strong id="m-total">$0</strong></p>
+      <div class="row">
+        <label>Pago Efectivo <input name="pagoEfectivo" type="number" min="0" step="any" /></label>
+        <label>Pago Nequi <input name="pagoNequi" type="number" min="0" step="any" /></label>
       </div>
-      <p class="error" id="product-error"></p>
+      <div class="pay-buttons">
+        <button type="button" data-pagar="efectivo">Todo en efectivo</button>
+        <button type="button" data-pagar="nequi">Todo por Nequi</button>
+      </div>
+      <p class="error" id="e-mostrador"></p>
       <div class="actions">
         <button type="button" data-close>Cancelar</button>
         <button class="primary" type="submit">Guardar</button>
@@ -249,14 +202,23 @@
     </form>
   </dialog>
 
-  <!-- Modal categoría -->
-  <dialog id="category-dialog">
-    <form id="category-form" method="dialog">
-      <h3 id="category-dialog-title">Nueva categoría</h3>
+  <!-- Formulario: venta a cliente -->
+  <dialog id="dlg-cliente">
+    <form id="form-cliente" method="dialog">
+      <h3 id="t-cliente">Nueva venta a cliente</h3>
       <input type="hidden" name="id" />
-      <label>Nombre <input name="name" required maxlength="100" /></label>
-      <label>Descripción <textarea name="description" rows="2"></textarea></label>
-      <p class="error" id="category-error"></p>
+      <label>Cliente <input name="cliente" list="dl-clientes" required maxlength="200" autocomplete="off" /></label>
+      <div class="row">
+        <label>Fecha <input name="fecha" type="date" required /></label>
+        <label>Condiciones / Pago <input name="condicionesPago" list="dl-condiciones" required maxlength="100" autocomplete="off" /></label>
+      </div>
+      <label>Descripción del Artículo <input name="descripcion" list="dl-productos" required maxlength="200" autocomplete="off" /></label>
+      <div class="row">
+        <label>Cantidad <input name="cantidad" type="number" min="1" step="1" required /></label>
+        <label>Precio Unitario <input name="precioUnitario" type="number" min="0" step="any" required /></label>
+      </div>
+      <p class="total-line">Valor Total: <strong id="c-total">$0</strong></p>
+      <p class="error" id="e-cliente"></p>
       <div class="actions">
         <button type="button" data-close>Cancelar</button>
         <button class="primary" type="submit">Guardar</button>
@@ -264,35 +226,35 @@
     </form>
   </dialog>
 
-  <!-- Modal movimiento -->
-  <dialog id="movement-dialog">
-    <form id="movement-form" method="dialog">
-      <h3 id="movement-dialog-title">Registrar movimiento</h3>
-      <label>Producto <select name="productId" required></select></label>
+  <!-- Formulario: compra (Inventario) -->
+  <dialog id="dlg-compra">
+    <form id="form-compra" method="dialog">
+      <h3 id="t-compra">Nueva compra</h3>
+      <input type="hidden" name="id" />
+      <label>Proveedor <input name="proveedor" list="dl-proveedores" required maxlength="200" autocomplete="off" /></label>
       <div class="row">
-        <label>Tipo
-          <select name="type">
-            <option value="SALE">Venta (salida)</option>
-            <option value="IN">Compra (entrada)</option>
-            <option value="ADJUST">Ajuste (conteo físico)</option>
-          </select>
-        </label>
-        <label><span id="quantity-label">Cantidad</span> <input name="quantity" type="number" min="0" step="1" required /></label>
+        <label>Fecha Factura <input name="fechaFactura" type="date" required /></label>
+        <label>Cliente / Destino <input name="clienteDestino" list="dl-destinos" required maxlength="200" autocomplete="off" /></label>
       </div>
-      <div class="row" id="sale-fields">
-        <label><span id="unit-price-label">Precio de venta unitario</span> <input name="unitPrice" type="number" min="0" step="0.01" /></label>
-        <label><span id="sale-total-label">Total de la venta</span> <output id="sale-total" class="total-preview">$0</output></label>
+      <label>Descripción del Artículo <input name="descripcion" list="dl-productos" required maxlength="200" autocomplete="off" /></label>
+      <div class="row">
+        <label>Cantidad <input name="cantidad" type="number" min="1" step="1" required /></label>
+        <label>Precio Unitario <input name="precioUnitario" type="number" min="0" step="any" required /></label>
       </div>
-      <p class="money-hint" id="money-hint"></p>
-      <p class="hint" id="movement-hint"></p>
-      <label><span id="reason-label">Motivo</span> <input name="reason" maxlength="255" placeholder="Ej: compra, merma, cliente…" /></label>
-      <p class="error" id="movement-error"></p>
+      <p class="total-line">Valor Total: <strong id="p-total" class="money-out">$0</strong></p>
+      <p class="error" id="e-compra"></p>
       <div class="actions">
         <button type="button" data-close>Cancelar</button>
-        <button class="primary" type="submit">Registrar</button>
+        <button class="primary" type="submit">Guardar</button>
       </div>
     </form>
   </dialog>
+
+  <datalist id="dl-productos"></datalist>
+  <datalist id="dl-clientes"></datalist>
+  <datalist id="dl-condiciones"></datalist>
+  <datalist id="dl-proveedores"></datalist>
+  <datalist id="dl-destinos"></datalist>
 
   <div id="toast" class="toast"></div>
   <script src="app.js"></script>

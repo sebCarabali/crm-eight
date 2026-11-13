@@ -11,11 +11,17 @@
     }
   },
   "rewrites": [
-    { "source": "/api/(.*)", "destination": "/api" },
-    { "source": "/docs", "destination": "/api" },
-    { "source": "/docs/(.*)", "destination": "/api" }
-  ],
-  "crons": [
-    { "path": "/api/alerts/cron", "schedule": "0 12 * * *" }
+    {
+      "source": "/api/(.*)",
+      "destination": "/api"
+    },
+    {
+      "source": "/docs",
+      "destination": "/api"
+    },
+    {
+      "source": "/docs/(.*)",
+      "destination": "/api"
+    }
   ]
 }

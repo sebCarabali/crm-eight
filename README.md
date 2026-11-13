@@ -1,76 +1,57 @@
-# 📦 Inventario — NestJS
+# 📦 Inventario de la tienda
 
-Sistema de manejo de inventario con interfaz web y API REST.
+Aplicación web para llevar las **ventas**, **compras**, **stock**, **clientes** y **caja** de la tienda, con la misma estructura del Excel `correccion_resumen_clientes_contar`.
 
 - **Backend:** NestJS 10 + TypeORM
-- **Base de datos:** SQLite vía [sql.js](https://sql.js.org) (WebAssembly, sin módulos nativos → **corre en StackBlitz**)
-- **Frontend:** HTML + CSS + JavaScript sin dependencias, servido por el mismo NestJS
+- **Base de datos:** PostgreSQL en **Supabase** (producción) o SQLite en WebAssembly (local / StackBlitz)
+- **Frontend:** HTML + CSS + JavaScript sin dependencias, servido como estáticos
 - **Docs de la API:** Swagger en `/docs`
+- **Publicada en:** https://crm-eight-three.vercel.app
 
-## Funcionalidades
+## Pantallas (columnas del Excel)
 
-| Módulo | Qué hace |
-|---|---|
-| **Categorías** | Crear, editar y eliminar (no deja borrar categorías con productos). |
-| **Productos** | CRUD con SKU único, precio, stock mínimo y categoría. Búsqueda por nombre/SKU y filtros por categoría y stock bajo. |
-| **Ventas** | Registrar ventas (descuentan stock y guardan el precio cobrado). Filtros por fecha (hoy, 7 días, 30 días, este mes, todo o rango) y producto, total vendido, número de ventas, unidades, ticket promedio, gráfico por día/mes, productos más vendidos y detalle. |
-| **Alertas diarias** | Todos los días a las 7:00 a. m. (hora de Colombia) se generan alertas de los productos con **stock ≤ mínimo + 2**: *Agotado*, *Bajo el mínimo* o *Cerca del mínimo*. Contador en el menú, aviso en el Resumen, historial por día, cantidad sugerida a pedir, y registrar entrada o marcar como atendida. |
-| **Caja** | Ingresos por ventas, egresos por compras y **saldo** del periodo (hoy, 7 días, 30 días, mes, todo o rango). Gráfico de ingresos vs. egresos por día/mes y detalle con saldo acumulado. |
-| **Movimientos** | Ventas, compras y ajustes. Cada movimiento guarda stock anterior y nuevo. No permite vender más de lo que hay. |
-| **Resumen** | Ventas de hoy, saldo del mes, valor del inventario y lista de productos con stock bajo. |
-
-> El stock de un producto **solo cambia con movimientos**, así siempre queda historial de cada unidad que entra o sale.
-
-## Ventas, compras y saldo
-
-| Movimiento | Stock | Dinero |
+| Pantalla | Hoja del Excel | Columnas |
 |---|---|---|
-| **Venta** (salida) | baja | **entra** (+ precio de venta) |
-| **Compra** (entrada) | sube | **sale** (− costo de compra) |
-| **Ajuste** / inventario inicial | se fija al conteo | no afecta |
+| **Ventas → Ventas de mostrador** | Transcripcion_Vent | Fecha · Objeto / Producto · Cantidad · Valor Unitario · Valor Total · Pago Efectivo · Pago Nequi |
+| **Ventas → Ventas a clientes** | Registro de Ventas | Cliente · Fecha · Condiciones / Pago · Cantidad · Descripción del Artículo · Precio Unitario · Valor Total |
+| **Compras** | Inventario | Proveedor · Fecha Factura · Cliente / Destino · Cantidad · Descripción del Artículo · Precio Unitario · Valor Total |
+| **Clientes** | Resumen clientes | Cliente · Cantidad de compras · Unidades compradas · Total comprado |
+| **Productos** | — (calculado) | Producto · Comprado · Vendido · **Stock = compras − ventas** |
+| **Caja** | — (calculado) | Ventas suman (entra dinero), compras restan (sale dinero), saldo acumulado |
+| **Resumen** | — (calculado) | Totales, productos más vendidos y mejores clientes |
 
-- Cada producto tiene **costo de compra** y **precio de venta**; se usan como valores por defecto al registrar compras y ventas (se pueden cambiar en cada una).
-- **Saldo** = ingresos por ventas − egresos por compras en el periodo.
-- El **inventario inicial** de un producto nuevo es mercancía que ya se tenía: no cuenta como compra.
-- Las "salidas" registradas en versiones anteriores se convierten automáticamente en ventas al arrancar.
+- **Valor Total** siempre se calcula como Cantidad × Valor/Precio Unitario, como en el Excel.
+- En ventas de mostrador, **Pago Efectivo + Pago Nequi** debe sumar el Valor Total. Si no se indica el pago, todo queda en efectivo.
+- **Resumen clientes** se calcula igual que las fórmulas del Excel (`COUNTIF` / `SUMIF` sobre "Registro de Ventas") y en el mismo orden.
+- **Stock**: se agrupa por nombre del producto, sin distinguir mayúsculas, tildes ni espacios extra ("Cerdito Alcancía" = "cerdito alcancia"). Si un producto se vendió sin compras registradas, el stock queda **negativo**.
+- Las fechas se guardan tal como vienen en el Excel.
+- En toda tabla hay buscador, filtro por fechas, fila de totales, y botones para editar y eliminar.
 
-## Datos de prueba: tienda de barrio colombiana
+## Datos iniciales (del Excel)
 
-La primera vez que arranca (con la base vacía) se cargan automáticamente:
+Cuando la base está vacía, la app carga automáticamente los datos del Excel (`src/seed/datos-excel.ts`):
+305 ventas de mostrador, 129 ventas a clientes (21 clientes) y 178 compras.
 
-- **14 categorías**: Bebidas, Lácteos y huevos, Panadería, Granos y abarrotes, Café y chocolate, Enlatados y conservas, Carnes frías, Mecato y paquetes, Dulces y galletas, Condimentos y salsas, Frutas y verduras, Aseo del hogar, Aseo personal, Cervezas y licores.
-- **73 productos** típicos (Coca-Cola, Pony Malta, leche Alquería, pandebono, arroz Diana, panela, café Sello Rojo, Chocoramo, Bon Bon Bum, Jabón Rey, cerveza Águila…) con precio de venta y costo de compra de referencia en pesos (margen de 22 % a 30 %).
-- **Alertas de la última semana**, reconstruidas con el stock que había cada día a las 7:00 a. m.
-- **Un mes de historial**: unas 1.000 ventas entre 7 a. m. y 9 p. m. (más movimiento en fines de semana y quincena), compras a proveedores y algunos ajustes. Varios productos quedan en stock bajo.
+Para volver a generar ese archivo desde una versión nueva del Excel (requiere Python y `openpyxl`):
 
-Los datos se generan con una semilla fija, así que siempre salen iguales. Se definen en `src/seed/seed-data.ts`.
-
-- Para **volver a empezar** con los datos de prueba: `npm run db:reset` y arrancar de nuevo.
-- Para **no cargar** datos de prueba: `SEED=false npm run dev`.
-
-## Abrir en StackBlitz
-
-Abre esta URL (se instala y arranca sola):
-
-```
-https://stackblitz.com/github/sebCarabali/crm-eight
+```bash
+pip install openpyxl
+npm run importar-excel -- ruta/al/archivo.xlsx
 ```
 
-La app queda en la vista previa; la API en `/api` y Swagger en `/docs`.
+El script valida que cada hoja tenga las columnas esperadas. Los datos nuevos se cargan solo en una base vacía.
 
-## Publicar en Vercel
+## Base de datos: Supabase
 
-El proyecto ya está preparado para Vercel (`vercel.json` + `api/index.js`):
+La app se conecta a PostgreSQL con la variable `DATABASE_URL` (o `POSTGRES_URL`):
 
-1. En Vercel: **Add New → Project → Import** el repositorio de GitHub. No hay que cambiar nada de la configuración.
-2. Listo: la interfaz se sirve como archivos estáticos y la API (`/api/*`, `/docs`) como una función serverless.
+1. En Supabase: **Project → Connect → Connection string → Transaction pooler** (puerto 6543). Copia la URI y reemplaza `[YOUR-PASSWORD]` por la contraseña de la base.
+2. En Vercel: **crm-eight → Settings → Environment Variables** → `DATABASE_URL` = esa URI (entornos Production y Preview).
+3. Vuelve a desplegar. Las tablas `ventas_mostrador`, `ventas_clientes` y `compras` se crean solas, y la primera vez se cargan los datos del Excel.
 
-**Base de datos**
+**Seguridad:** al arrancar, la app activa **Row Level Security** en sus tablas. Así la API REST pública de Supabase (la clave *publishable/anon*) no puede leerlas ni modificarlas; solo el backend, que se conecta con la contraseña, tiene acceso. La clave publishable no se usa en esta app.
 
-- **Sin base de datos** la app funciona en **modo demo**: usa SQLite en `/tmp` con los datos de prueba, que se **reinician** cuando Vercel recicla la instancia. La interfaz muestra un aviso.
-- **Para guardar los datos de forma permanente**: en el proyecto de Vercel → **Storage → Create Database → Neon (Postgres)** y conéctala al proyecto. Eso crea la variable `DATABASE_URL` (o `POSTGRES_URL`). Vuelve a desplegar: las tablas se crean solas y la primera vez se cargan los datos de prueba (con `SEED=false` empieza vacía).
-
-**Alertas diarias en Vercel**: no hay un proceso corriendo todo el día, así que las genera **Vercel Cron** todos los días a las 12:00 UTC (7:00 a. m. en Colombia) llamando a `GET /api/alerts/cron`. Si defines la variable `CRON_SECRET`, Vercel la envía automáticamente y el endpoint rechaza llamadas sin ella.
+Sin `DATABASE_URL`, en Vercel la app funciona en **modo demo** (SQLite en `/tmp`, los datos se reinician) y lo indica con un aviso.
 
 ## Correr localmente
 
@@ -78,85 +59,69 @@ Requiere Node.js 18 o superior.
 
 ```bash
 npm install
-npm run dev        # modo desarrollo con recarga automática → http://localhost:3000
+npm run dev        # http://localhost:3000 (SQLite en data/inventario.sqlite)
 ```
 
-Producción:
+Variables opcionales:
 
-```bash
-npm run build
-npm run start:prod
+- `DATABASE_URL` / `POSTGRES_URL`: usar PostgreSQL (Supabase) en lugar de SQLite
+- `DB_PATH`: ruta del archivo SQLite, o `:memory:`
+- `SEED`: `false` para no cargar los datos del Excel
+- `PORT`: puerto (por defecto `3000`)
+
+`npm run db:reset` borra la base local (SQLite); al arrancar se vuelven a cargar los datos del Excel.
+
+## Abrir en StackBlitz
+
+```
+https://stackblitz.com/github/sebCarabali/crm-eight
 ```
 
-Los datos se guardan en `data/inventario.sqlite`. Variables opcionales:
+## Publicar en Vercel
 
-- `PORT` — puerto (por defecto `3000`)
-- `DATABASE_URL` / `POSTGRES_URL` — usar PostgreSQL en lugar de SQLite (datos permanentes)
-- `DB_PATH` — ruta del archivo SQLite, o `:memory:` para no guardar nada
-- `CRON_SECRET` — clave que exige `GET /api/alerts/cron` (Vercel Cron la envía sola)
-- `SEED` — `false` para no cargar los datos de prueba
-- `ALERT_MARGIN` — unidades sobre el mínimo que disparan la alerta (por defecto `2`)
-- `ALERT_HOUR` — hora local en que se generan las alertas diarias (por defecto `7`)
-- `ALERTS_AUTO` — `false` para desactivar la generación automática
-- `STORE_UTC_OFFSET` — zona horaria de la tienda en horas (por defecto `-5`, Colombia)
-
-### Cómo funcionan las alertas
-
-El servidor revisa cada minuto: si ya pasó la hora configurada y las alertas del día no se han generado, las genera con el stock de ese momento. Si el servidor arranca después de esa hora, las genera al arrancar. El botón **Actualizar ahora** las recalcula con el stock actual: conserva las que ya marcaste como atendidas y quita las que ya no aplican. Al registrar una entrada desde una alerta, la alerta queda atendida.
-
-El "sugerido pedir" es lo que falta para llegar al doble del stock mínimo.
-
-## Datos técnicos en el log
-
-Las pantallas muestran solo lo que necesita quien atiende la tienda. El detalle técnico queda en el log:
-
-- **Navegador** (Herramientas de desarrollador → Consola, grupos `[Inventario]`): SKU, stock antes y después de cada movimiento, valores unitarios, detalle de caja, stock que tenía cada producto al generar la alerta y hora de generación.
-- **Servidor**: generación de alertas con el detalle por producto (stock al generar, mínimo y nivel) y la dirección de la documentación de la API (`/docs`).
-
-El SKU solo se muestra en la pantalla de Productos, donde se administra. Toda esta información sigue disponible en la API.
+El repositorio ya está conectado: cada `git push` a `main` despliega automáticamente. La configuración está en `vercel.json`: la interfaz se sirve como estáticos desde `public/`, y la API (`/api/*`, `/docs`) como función serverless (`api/index.js`).
 
 ## Pruebas
 
 ```bash
-npm test           # pruebas unitarias de las reglas de stock
-npm run test:e2e   # pruebas de la API completa (base en memoria)
+npm test           # unitarias
+npm run test:e2e   # API completa (SQLite en memoria)
+DATABASE_URL=postgres://… npm run test:e2e   # contra PostgreSQL
 ```
+
+Las pruebas verifican que los datos cargados coinciden con el Excel: filas por hoja, la hoja "Resumen clientes" y los totales de efectivo/Nequi.
 
 ## API
 
 | Método | Ruta | Descripción |
 |---|---|---|
-| GET | `/api/categories` | Lista categorías (con conteo de productos) |
-| POST | `/api/categories` | Crea categoría |
-| PATCH | `/api/categories/:id` | Edita categoría |
-| DELETE | `/api/categories/:id` | Elimina categoría |
-| GET | `/api/products?search=&categoryId=&lowStock=true` | Lista/busca productos |
-| GET | `/api/products/summary` | Resumen del inventario |
-| GET | `/api/products/:id` | Detalle de producto |
-| POST | `/api/products` | Crea producto (acepta `initialStock`) |
-| PATCH | `/api/products/:id` | Edita producto (no el stock) |
-| DELETE | `/api/products/:id` | Elimina producto y su historial |
-| GET | `/api/movements?productId=&type=&limit=` | Historial de movimientos |
-| POST | `/api/movements` | Registra movimiento `{ productId, type: SALE\|IN\|ADJUST, quantity, unitPrice?, reason }` (SALE = venta, IN = compra) |
-| GET | `/api/cash?from=&to=&productId=` | Caja: ingresos, egresos, saldo y movimientos con saldo acumulado |
-| GET | `/api/alerts?date=YYYY-MM-DD` | Alertas de un día (por defecto hoy) con conteos por nivel |
-| GET | `/api/alerts/days?limit=14` | Últimos días con alertas |
-| POST | `/api/alerts/generate` | Genera/actualiza ya mismo las alertas de hoy |
-| PATCH | `/api/alerts/:id` | Marca una alerta como atendida `{ resolved: true }` |
-| GET | `/api/sales?from=&to=&productId=` | Reporte de ventas: totales, productos más vendidos y detalle (`from`/`to` en ISO 8601) |
+| GET/POST | `/api/ventas-mostrador` | Listar (`?desde=&hasta=&q=`) / crear |
+| GET/PATCH/DELETE | `/api/ventas-mostrador/:id` | Ver / editar / eliminar |
+| GET/POST | `/api/ventas-clientes` | Listar / crear |
+| GET/PATCH/DELETE | `/api/ventas-clientes/:id` | Ver / editar / eliminar |
+| GET/POST | `/api/compras` | Listar / crear |
+| GET/PATCH/DELETE | `/api/compras/:id` | Ver / editar / eliminar |
+| GET | `/api/productos?q=` | Stock por producto (compras − ventas) |
+| GET | `/api/clientes/resumen?desde=&hasta=&q=` | Resumen por cliente |
+| GET | `/api/caja?desde=&hasta=` | Ingresos, egresos, saldo y movimientos |
+| GET | `/api/resumen` | Datos de la pantalla de inicio |
+| GET | `/api/opciones` | Valores para autocompletar |
+
+## Datos técnicos en el log
+
+Las pantallas muestran solo las columnas del Excel. Los ids y el detalle técnico quedan en la consola del navegador (grupos `[Inventario]`) y en el log del servidor.
 
 ## Estructura
 
 ```
 src/
-  main.ts                 arranque, validación global, Swagger, archivos estáticos
-  app.module.ts           conexión a la base de datos
-  categories/             entidad, DTOs, servicio y controlador de categorías
-  products/               entidad, DTOs, servicio y controlador de productos
-  movements/              movimientos de stock, reporte de ventas y reglas de negocio (stock-rules.ts)
-  alerts/                 alertas diarias de stock (generación programada, API)
-  common/                 utilidades de fecha/hora de la tienda
-  seed/                   datos de prueba de la tienda (seed-data.ts) y su carga automática
-public/                   interfaz web (index.html, app.js, styles.css)
-test/                     pruebas e2e
+  main.ts / vercel.ts       arranque local / función serverless de Vercel
+  app.module.ts             módulos y conexión a la base
+  common/                   configuración de la base (Supabase/SQLite), estado de la instalación
+  registros/                entidades por hoja (ventas de mostrador, ventas a clientes, compras), validaciones y CRUD
+  reportes/                 productos (stock), resumen de clientes, caja y resumen
+  seed/                     datos del Excel y su carga inicial
+scripts/excel_a_datos.py    convierte el Excel en src/seed/datos-excel.ts
+public/                     interfaz web
+test/                       pruebas e2e
 ```

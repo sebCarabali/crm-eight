@@ -1,7 +1,7 @@
 {
   "name": "crm-eight",
   "version": "1.0.0",
-  "description": "Sistema de manejo de inventario (NestJS + TypeORM + sql.js). Compatible con StackBlitz.",
+  "description": "Inventario de la tienda: ventas de mostrador, ventas a clientes, compras, stock, clientes y caja (NestJS + PostgreSQL/Supabase o SQLite)",
   "private": true,
   "license": "MIT",
   "scripts": {
@@ -9,9 +9,10 @@
     "start": "nest start",
     "dev": "nest start --watch",
     "start:prod": "node dist/main",
-    "db:reset": "node -e \"require('fs').rmSync('data', { recursive: true, force: true }); console.log('Base de datos borrada: al arrancar se cargan de nuevo los datos de prueba')\"",
+    "db:reset": "node -e \"require('fs').rmSync('data', { recursive: true, force: true }); console.log('Base local borrada: al arrancar se cargan de nuevo los datos del Excel')\"",
     "test": "jest",
-    "test:e2e": "jest --config ./test/jest-e2e.json"
+    "test:e2e": "jest --config ./test/jest-e2e.json",
+    "importar-excel": "python3 scripts/excel_a_datos.py"
   },
   "dependencies": {
     "@nestjs/common": "^10.4.15",

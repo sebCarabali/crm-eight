@@ -241,6 +241,25 @@ table.compact th, table.compact td { padding: 8px 6px; }
 .badge.done { background: var(--primary-soft); color: var(--ok); }
 .stock-up { color: var(--ok); font-weight: 600; }
 
+/* ---------- Estructura por hojas del Excel ---------- */
+.subtabs { display: inline-flex; border: 1px solid var(--border); border-radius: 8px; overflow: hidden; background: var(--surface); margin-bottom: 16px; }
+.subtabs button { border: none; border-radius: 0; padding: 9px 16px; color: var(--muted); font-weight: 500; }
+.subtabs button + button { border-left: 1px solid var(--border); }
+.subtabs button.active { background: var(--primary); color: #fff; }
+.sub { display: none; }
+.sub.active { display: block; }
+tfoot td { font-weight: 600; background: #eef1ef; border-top: 2px solid var(--border); font-variant-numeric: tabular-nums; }
+.total-line { margin: 0; color: var(--muted); }
+.total-line strong { font-size: 18px; color: var(--primary-hover); margin-left: 6px; }
+.total-line strong.money-out { color: var(--danger); }
+.pay-buttons { display: flex; gap: 8px; margin-top: -4px; }
+.pay-buttons button { font-size: 12px; padding: 5px 10px; }
+.card strong.small-strong { font-size: 18px; }
+.badge.VENTA_MOSTRADOR { background: var(--primary); color: #fff; }
+.badge.VENTA_CLIENTE { background: var(--primary-soft); color: var(--ok); }
+.badge.COMPRA { background: #dde3df; color: #2b312e; }
+#tab-productos > .hint { margin: -6px 0 12px; }
+
 .demo-banner {
   background: #e6e9e7; color: #3c433f; font-size: 13px; text-align: center; padding: 8px 16px;
   border-bottom: 1px solid var(--border);
