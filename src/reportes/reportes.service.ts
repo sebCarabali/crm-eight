@@ -23,8 +23,13 @@ const enRango = (fecha: string, f: FiltroDto) => (!f.desde || fecha >= f.desde) 
 
 export interface ProductoStock {
   producto: string;
+  /** Cantidad del Excel (hoja Inventario): stock inicial. */
+  cantidad: number;
+  /** Compras registradas en la app (empiezan en 0). */
   comprado: number;
+  /** Ventas registradas en la app (empiezan en 0). */
   vendido: number;
+  /** Cantidad + Comprado − Vendido. */
   stock: number;
   /** Interno (no se muestra): último precio de venta, para proponerlo al registrar una venta. */
   ultimoPrecioVenta: number | null;
@@ -71,15 +76,22 @@ export class ReportesService {
     return { mostrador: m, clientes: c, compras: p };
   }
 
-  /** Stock por producto = unidades compradas − unidades vendidas (mostrador + clientes). Puede ser negativo. */
-  async productos(q?: string): Promise<ProductoStock[]> {
+  /**
+   * Stock por producto:
+   *  - Cantidad: la de la hoja Inventario del Excel (stock inicial).
+   *  - Comprado / Vendido: solo lo registrado en la app (empiezan en 0); las ventas del Excel no descuentan.
+   *  - Stock = Cantidad + Comprado − Vendido (puede quedar negativo).
+   * Incluye los productos del Inventario y los que tengan compras o ventas registradas en la app.
+   */
+  private async todosLosProductos(q?: string): Promise<(ProductoStock & { enStock: boolean })[]> {
     const { mostrador, clientes, compras } = await this.todo();
-    const mapa = new Map<string, ProductoStock & { nombres: Map<string, number> }>();
+    type Fila = Omit<ProductoStock, 'producto' | 'stock'> & { nombres: Map<string, number>; enStock: boolean };
+    const mapa = new Map<string, Fila>();
     const fila = (nombre: string) => {
       const clave = claveProducto(nombre);
       let p = mapa.get(clave);
       if (!p) {
-        p = { producto: nombre, comprado: 0, vendido: 0, stock: 0, ultimoPrecioVenta: null, ultimoPrecioCompra: null, nombres: new Map() };
+        p = { cantidad: 0, comprado: 0, vendido: 0, ultimoPrecioVenta: null, ultimoPrecioCompra: null, nombres: new Map(), enStock: false };
         mapa.set(clave, p);
       }
       p.nombres.set(nombre, (p.nombres.get(nombre) ?? 0) + 1);
@@ -87,35 +99,43 @@ export class ReportesService {
     };
     for (const c of compras) {
       const p = fila(c.descripcion);
-      p.comprado += c.cantidad;
+      if (c.importado) p.cantidad += c.cantidad;
+      else p.comprado += c.cantidad;
+      p.enStock = true;
       p.ultimoPrecioCompra = c.precioUnitario;
     }
     // Ventas en orden de fecha, para quedarse con el último precio.
     const ventas = [
-      ...mostrador.map((v) => ({ nombre: v.producto, fecha: v.fecha, cantidad: v.cantidad, precio: v.valorUnitario })),
-      ...clientes.map((v) => ({ nombre: v.descripcion, fecha: v.fecha, cantidad: v.cantidad, precio: v.precioUnitario })),
+      ...mostrador.map((v) => ({ nombre: v.producto, fecha: v.fecha, cantidad: v.cantidad, precio: v.valorUnitario, importado: v.importado })),
+      ...clientes.map((v) => ({ nombre: v.descripcion, fecha: v.fecha, cantidad: v.cantidad, precio: v.precioUnitario, importado: v.importado })),
     ].sort((a, b) => a.fecha.localeCompare(b.fecha));
     for (const v of ventas) {
       const p = fila(v.nombre);
-      p.vendido += v.cantidad;
       p.ultimoPrecioVenta = v.precio;
+      if (v.importado) continue; // ventas del Excel: no descuentan del stock
+      p.vendido += v.cantidad;
+      p.enStock = true;
     }
     const filtro = q ? claveProducto(q) : '';
     return [...mapa.entries()]
       .filter(([clave]) => !filtro || clave.includes(filtro))
-      .map(([, p]) => {
+      .map(([, p]) => ({
         // Nombre a mostrar: la forma en que más se escribió.
-        const producto = [...p.nombres.entries()].sort((a, b) => b[1] - a[1])[0][0];
-        return {
-          producto,
-          comprado: p.comprado,
-          vendido: p.vendido,
-          stock: p.comprado - p.vendido,
-          ultimoPrecioVenta: p.ultimoPrecioVenta,
-          ultimoPrecioCompra: p.ultimoPrecioCompra,
-        };
-      })
+        producto: [...p.nombres.entries()].sort((a, b) => b[1] - a[1])[0][0],
+        cantidad: p.cantidad,
+        comprado: p.comprado,
+        vendido: p.vendido,
+        stock: p.cantidad + p.comprado - p.vendido,
+        ultimoPrecioVenta: p.ultimoPrecioVenta,
+        ultimoPrecioCompra: p.ultimoPrecioCompra,
+        enStock: p.enStock,
+      }))
       .sort((a, b) => a.producto.localeCompare(b.producto, 'es'));
+  }
+
+  /** Tabla de stock (sin los productos que solo aparecen en ventas importadas del Excel). */
+  async productos(q?: string): Promise<ProductoStock[]> {
+    return (await this.todosLosProductos(q)).filter((p) => p.enStock).map(({ enStock: _e, ...p }) => p);
   }
 
   /**
@@ -223,7 +243,7 @@ export class ReportesService {
   async opciones() {
     const { mostrador, clientes, compras } = await this.todo();
     const unicos = (valores: string[]) => [...new Set(valores.filter(Boolean))].sort((a, b) => a.localeCompare(b, 'es'));
-    const productos = await this.productos();
+    const productos = await this.todosLosProductos();
     return {
       productos: productos.map((p) => ({ producto: p.producto, precioVenta: p.ultimoPrecioVenta, precioCompra: p.ultimoPrecioCompra })),
       clientes: unicos(clientes.map((c) => c.cliente)),

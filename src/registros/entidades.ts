@@ -41,6 +41,13 @@ export class VentaMostrador {
   @Column({ type: MONEY_COLUMN, default: 0 })
   pagoNequi: number;
 
+  /**
+   * Interno (no se muestra): fila cargada desde el Excel. En el stock, la Cantidad de las compras
+   * importadas es el stock inicial y las ventas importadas no descuentan.
+   */
+  @Column({ default: false })
+  importado: boolean;
+
   @CreateDateColumn()
   creadoEn: Date;
 }
@@ -80,6 +87,13 @@ export class VentaCliente {
   @Column({ type: MONEY_COLUMN })
   valorTotal: number;
 
+  /**
+   * Interno (no se muestra): fila cargada desde el Excel. En el stock, la Cantidad de las compras
+   * importadas es el stock inicial y las ventas importadas no descuentan.
+   */
+  @Column({ default: false })
+  importado: boolean;
+
   @CreateDateColumn()
   creadoEn: Date;
 }
@@ -118,6 +132,13 @@ export class Compra {
   /** Valor Total (= Cantidad × Precio Unitario) */
   @Column({ type: MONEY_COLUMN })
   valorTotal: number;
+
+  /**
+   * Interno (no se muestra): fila cargada desde el Excel. En el stock, la Cantidad de las compras
+   * importadas es el stock inicial y las ventas importadas no descuentan.
+   */
+  @Column({ default: false })
+  importado: boolean;
 
   @CreateDateColumn()
   creadoEn: Date;

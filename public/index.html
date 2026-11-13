@@ -118,9 +118,9 @@
         <input type="search" id="pr-q" placeholder="Buscar producto…" />
         <label class="check"><input type="checkbox" id="pr-negativos" /> Solo stock negativo</label>
       </div>
-      <p class="hint">Stock = unidades compradas − unidades vendidas (mostrador y clientes), por nombre de producto.</p>
+      <p class="hint">Stock = Cantidad (hoja Inventario del Excel) + Comprado − Vendido. Comprado y Vendido cuentan solo lo registrado en la app.</p>
       <table>
-        <thead><tr><th>Producto</th><th class="num">Comprado</th><th class="num">Vendido</th><th class="num">Stock</th></tr></thead>
+        <thead><tr><th>Producto</th><th class="num">Cantidad</th><th class="num">Comprado</th><th class="num">Vendido</th><th class="num">Stock</th></tr></thead>
         <tbody id="pr-body"></tbody>
       </table>
       <button class="show-more" id="pr-mas" hidden>Mostrar más</button>

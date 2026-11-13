@@ -77,9 +77,9 @@ describe('Tienda: ventas, compras, stock, clientes y caja (e2e)', () => {
     const res = await http().get('/api/productos').expect(200);
     const cerdito = res.body.find((p: { producto: string }) => p.producto.toLowerCase().startsWith('cerdito'));
     // comprado 10; vendido 2 (mostrador) + 3 + 1 + 1 (clientes) = 7
-    expect(cerdito).toMatchObject({ comprado: 10, vendido: 7, stock: 3 });
+    expect(cerdito).toMatchObject({ cantidad: 0, comprado: 10, vendido: 7, stock: 3 });
     const pinturas = res.body.find((p: { producto: string }) => p.producto === 'Pinturas');
-    expect(pinturas).toMatchObject({ comprado: 0, vendido: 5, stock: -5 });
+    expect(pinturas).toMatchObject({ cantidad: 0, comprado: 0, vendido: 5, stock: -5 });
   });
 
   it('resumen de clientes como en el Excel (COUNTIF / SUMIF)', async () => {

@@ -262,10 +262,11 @@ async function cargarProductos() {
     'pr',
     filas,
     (p) => `<tr>
-      <td>${esc(p.producto)}</td><td class="num">${num.format(p.comprado)}</td><td class="num">${num.format(p.vendido)}</td>
+      <td>${esc(p.producto)}</td><td class="num">${num.format(p.cantidad)}</td>
+      <td class="num">${num.format(p.comprado)}</td><td class="num">${num.format(p.vendido)}</td>
       <td class="num ${p.stock < 0 ? 'money-out' : p.stock === 0 ? 'low' : ''}"><strong>${num.format(p.stock)}</strong></td>
     </tr>`,
-    4,
+    5,
     'No hay productos con este filtro.',
   );
 }

@@ -48,9 +48,10 @@ export class CargaInicialService implements OnModuleInit {
   cargar() {
     return this.dataSource.transaction(async (em) => {
       const lotes = <T>(filas: T[]) => Array.from({ length: Math.ceil(filas.length / 100) }, (_, i) => filas.slice(i * 100, i * 100 + 100));
-      for (const lote of lotes(DATOS_EXCEL.ventasMostrador)) await em.insert(VentaMostrador, lote);
-      for (const lote of lotes(DATOS_EXCEL.compras)) await em.insert(Compra, lote);
-      for (const lote of lotes(DATOS_EXCEL.ventasClientes)) await em.insert(VentaCliente, lote);
+      const marcar = <T extends object>(filas: T[]) => filas.map((f) => ({ ...f, importado: true }));
+      for (const lote of lotes(marcar(DATOS_EXCEL.ventasMostrador))) await em.insert(VentaMostrador, lote);
+      for (const lote of lotes(marcar(DATOS_EXCEL.compras))) await em.insert(Compra, lote);
+      for (const lote of lotes(marcar(DATOS_EXCEL.ventasClientes))) await em.insert(VentaCliente, lote);
     });
   }
 }

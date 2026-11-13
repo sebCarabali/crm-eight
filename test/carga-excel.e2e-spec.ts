@@ -64,10 +64,37 @@ describe('Carga de los datos del Excel (e2e)', () => {
     });
   });
 
+  it('stock: la Cantidad del Inventario es el stock inicial; Comprado y Vendido empiezan en 0', async () => {
+    const productos = (await http().get('/api/productos').expect(200)).body;
+    expect(productos.every((p: { comprado: number; vendido: number; stock: number; cantidad: number }) =>
+      p.comprado === 0 && p.vendido === 0 && p.stock === p.cantidad)).toBe(true);
+    // "Guadalupe 30cm" aparece dos veces en el Inventario: 9 + 2
+    expect(productos.find((p: { producto: string }) => p.producto === 'Guadalupe 30cm')).toMatchObject({ cantidad: 11, stock: 11 });
+    const unidadesInventario = productos.reduce((s: number, p: { cantidad: number }) => s + p.cantidad, 0);
+    const compras = (await http().get('/api/compras').expect(200)).body;
+    expect(unidadesInventario).toBe(compras.reduce((s: number, c: { cantidad: number }) => s + c.cantidad, 0));
+    // las ventas del Excel no descuentan: ningún producto queda negativo
+    expect((await http().get('/api/resumen').expect(200)).body.productosStockNegativo).toBe(0);
+  });
+
+  it('las compras y ventas nuevas sí mueven el stock', async () => {
+    const venta = await http()
+      .post('/api/ventas-mostrador')
+      .send({ fecha: '2026-11-12', producto: 'Guadalupe 30cm', cantidad: 3, valorUnitario: 9000 })
+      .expect(201);
+    await http()
+      .post('/api/compras')
+      .send({ proveedor: 'Artesanías Uanalujo', fechaFactura: '2026-11-12', clienteDestino: 'Lina (Popayán)', cantidad: 5, descripcion: 'guadalupe 30CM', precioUnitario: 5500 })
+      .expect(201);
+    const p = (await http().get('/api/productos?q=guadalupe 30').expect(200)).body[0];
+    expect(p).toMatchObject({ cantidad: 11, comprado: 5, vendido: 3, stock: 13 });
+    await http().delete(`/api/ventas-mostrador/${venta.body.id}`).expect(204);
+  });
+
   it('respeta las fechas del Excel', async () => {
     const mostrador = (await http().get('/api/ventas-mostrador').expect(200)).body;
     expect(mostrador.at(-1).fecha).toBe('2026-07-28');
-    expect(mostrador[0].fecha).toBe('2026-08-26');
+    expect(mostrador.filter((v: { importado: boolean }) => v.importado)[0].fecha).toBe('2026-08-26');
     const clientes = (await http().get('/api/ventas-clientes').expect(200)).body;
     expect(clientes[0].fecha).toBe('2026-12-09');
   });

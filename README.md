@@ -16,14 +16,15 @@ Aplicación web para llevar las **ventas**, **compras**, **stock**, **clientes**
 | **Ventas → Ventas a clientes** | Registro de Ventas | Cliente · Fecha · Condiciones / Pago · Cantidad · Descripción del Artículo · Precio Unitario · Valor Total |
 | **Compras** | Inventario | Proveedor · Fecha Factura · Cliente / Destino · Cantidad · Descripción del Artículo · Precio Unitario · Valor Total |
 | **Clientes** | Resumen clientes | Cliente · Cantidad de compras · Unidades compradas · Total comprado |
-| **Productos** | — (calculado) | Producto · Comprado · Vendido · **Stock = compras − ventas** |
+| **Productos** | Inventario (Cantidad) | Producto · Cantidad · Comprado · Vendido · **Stock = Cantidad + Comprado − Vendido** |
 | **Caja** | — (calculado) | Ventas suman (entra dinero), compras restan (sale dinero), saldo acumulado |
 | **Resumen** | — (calculado) | Totales, productos más vendidos y mejores clientes |
 
 - **Valor Total** siempre se calcula como Cantidad × Valor/Precio Unitario, como en el Excel.
 - En ventas de mostrador, **Pago Efectivo + Pago Nequi** debe sumar el Valor Total. Si no se indica el pago, todo queda en efectivo.
 - **Resumen clientes** se calcula igual que las fórmulas del Excel (`COUNTIF` / `SUMIF` sobre "Registro de Ventas") y en el mismo orden.
-- **Stock**: se agrupa por nombre del producto, sin distinguir mayúsculas, tildes ni espacios extra ("Cerdito Alcancía" = "cerdito alcancia"). Si un producto se vendió sin compras registradas, el stock queda **negativo**.
+- **Stock**: la **Cantidad** de la hoja Inventario es el stock inicial de cada producto. **Comprado** y **Vendido** empiezan en 0 y cuentan solo las compras y ventas registradas en la app; las ventas que vienen del Excel no descuentan del stock (sí cuentan en Ventas, Clientes y Caja). Stock = Cantidad + Comprado − Vendido; puede quedar negativo.
+- Los productos se agrupan por nombre, sin distinguir mayúsculas, tildes ni espacios extra ("Cerdito Alcancía" = "cerdito alcancia").
 - Las fechas se guardan tal como vienen en el Excel.
 - En toda tabla hay buscador, filtro por fechas, fila de totales, y botones para editar y eliminar.
 
@@ -101,7 +102,7 @@ Las pruebas verifican que los datos cargados coinciden con el Excel: filas por h
 | GET/PATCH/DELETE | `/api/ventas-clientes/:id` | Ver / editar / eliminar |
 | GET/POST | `/api/compras` | Listar / crear |
 | GET/PATCH/DELETE | `/api/compras/:id` | Ver / editar / eliminar |
-| GET | `/api/productos?q=` | Stock por producto (compras − ventas) |
+| GET | `/api/productos?q=` | Stock por producto (Cantidad + Comprado − Vendido) |
 | GET | `/api/clientes/resumen?desde=&hasta=&q=` | Resumen por cliente |
 | GET | `/api/caja?desde=&hasta=` | Ingresos, egresos, saldo y movimientos |
 | GET | `/api/resumen` | Datos de la pantalla de inicio |
