@@ -58,6 +58,20 @@ https://stackblitz.com/github/sebCarabali/crm-eight
 
 La app queda en la vista previa; la API en `/api` y Swagger en `/docs`.
 
+## Publicar en Vercel
+
+El proyecto ya está preparado para Vercel (`vercel.json` + `api/index.js`):
+
+1. En Vercel: **Add New → Project → Import** el repositorio de GitHub. No hay que cambiar nada de la configuración.
+2. Listo: la interfaz se sirve como archivos estáticos y la API (`/api/*`, `/docs`) como una función serverless.
+
+**Base de datos**
+
+- **Sin base de datos** la app funciona en **modo demo**: usa SQLite en `/tmp` con los datos de prueba, que se **reinician** cuando Vercel recicla la instancia. La interfaz muestra un aviso.
+- **Para guardar los datos de forma permanente**: en el proyecto de Vercel → **Storage → Create Database → Neon (Postgres)** y conéctala al proyecto. Eso crea la variable `DATABASE_URL` (o `POSTGRES_URL`). Vuelve a desplegar: las tablas se crean solas y la primera vez se cargan los datos de prueba (con `SEED=false` empieza vacía).
+
+**Alertas diarias en Vercel**: no hay un proceso corriendo todo el día, así que las genera **Vercel Cron** todos los días a las 12:00 UTC (7:00 a. m. en Colombia) llamando a `GET /api/alerts/cron`. Si defines la variable `CRON_SECRET`, Vercel la envía automáticamente y el endpoint rechaza llamadas sin ella.
+
 ## Correr localmente
 
 Requiere Node.js 18 o superior.
@@ -77,7 +91,9 @@ npm run start:prod
 Los datos se guardan en `data/inventario.sqlite`. Variables opcionales:
 
 - `PORT` — puerto (por defecto `3000`)
+- `DATABASE_URL` / `POSTGRES_URL` — usar PostgreSQL en lugar de SQLite (datos permanentes)
 - `DB_PATH` — ruta del archivo SQLite, o `:memory:` para no guardar nada
+- `CRON_SECRET` — clave que exige `GET /api/alerts/cron` (Vercel Cron la envía sola)
 - `SEED` — `false` para no cargar los datos de prueba
 - `ALERT_MARGIN` — unidades sobre el mínimo que disparan la alerta (por defecto `2`)
 - `ALERT_HOUR` — hora local en que se generan las alertas diarias (por defecto `7`)

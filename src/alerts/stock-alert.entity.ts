@@ -1,4 +1,5 @@
 import { Column, CreateDateColumn, Entity, Index, ManyToOne, PrimaryColumn, PrimaryGeneratedColumn } from 'typeorm';
+import { TIMESTAMP_COLUMN } from '../common/database';
 import { Product } from '../products/product.entity';
 
 export enum AlertLevel {
@@ -59,7 +60,7 @@ export class AlertRun {
   @PrimaryColumn({ length: 10 })
   date: string;
 
-  @Column({ type: 'datetime' })
+  @Column({ type: TIMESTAMP_COLUMN })
   generatedAt: Date;
 
   @Column({ type: 'integer' })

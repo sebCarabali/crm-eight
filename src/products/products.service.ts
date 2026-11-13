@@ -99,7 +99,7 @@ export class ProductsService {
     const product = await this.findOne(id);
     await this.dataSource.transaction(async (em) => {
       for (const table of [StockMovement, StockAlert]) {
-        await em.createQueryBuilder().delete().from(table).where('productId = :id', { id }).execute();
+        await em.createQueryBuilder().delete().from(table).where('"productId" = :id', { id }).execute();
       }
       await em.remove(product);
     });

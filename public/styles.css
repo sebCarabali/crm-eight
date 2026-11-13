@@ -239,6 +239,11 @@ table.compact th, table.compact td { padding: 8px 6px; }
 .badge.done { background: var(--primary-soft); color: var(--ok); }
 .stock-up { color: var(--ok); font-weight: 600; }
 
+.demo-banner {
+  background: #e6e9e7; color: #3c433f; font-size: 13px; text-align: center; padding: 8px 16px;
+  border-bottom: 1px solid var(--border);
+}
+
 .toast {
   position: fixed;
   bottom: 24px;

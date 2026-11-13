@@ -7,6 +7,7 @@ import {
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { DataSource, In, Repository } from 'typeorm';
+import { isServerless } from '../common/database';
 import { addDaysKey, DAY_MS, storeDateKey, storeHour, storeTime } from '../common/store-time';
 import { MovementType, StockMovement } from '../movements/stock-movement.entity';
 import { Product } from '../products/product.entity';
@@ -61,6 +62,9 @@ export class AlertsService implements OnApplicationBootstrap, OnModuleDestroy {
   onApplicationBootstrap() {
     if (process.env.ALERTS_AUTO === 'false') return;
     void this.tick();
+    // En Vercel (serverless) no hay proceso permanente: la tarea diaria la dispara Vercel Cron
+    // (GET /api/alerts/cron); además se revisa en cada arranque de instancia.
+    if (isServerless()) return;
     this.timer = setInterval(() => void this.tick(), 60_000);
     this.timer.unref?.();
   }

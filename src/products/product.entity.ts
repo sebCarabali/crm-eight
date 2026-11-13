@@ -7,6 +7,7 @@ import {
   UpdateDateColumn,
 } from 'typeorm';
 import { Category } from '../categories/category.entity';
+import { MONEY_COLUMN } from '../common/database';
 
 @Entity('products')
 export class Product {
@@ -24,11 +25,11 @@ export class Product {
   description: string | null;
 
   /** Precio de venta. */
-  @Column({ type: 'real', default: 0 })
+  @Column({ type: MONEY_COLUMN, default: 0 })
   price: number;
 
   /** Costo de compra al proveedor (valor por defecto al registrar una compra). */
-  @Column({ type: 'real', default: 0 })
+  @Column({ type: MONEY_COLUMN, default: 0 })
   cost: number;
 
   /** Existencias actuales. Solo cambia a través de movimientos de stock. */

@@ -1,4 +1,5 @@
 import { Column, CreateDateColumn, Entity, ManyToOne, PrimaryGeneratedColumn } from 'typeorm';
+import { MONEY_COLUMN } from '../common/database';
 import { Product } from '../products/product.entity';
 
 export enum MovementType {
@@ -36,7 +37,7 @@ export class StockMovement {
    * Valor unitario: precio de venta en ventas, costo en compras; null si no mueve dinero.
    * Se congela al momento del movimiento.
    */
-  @Column({ type: 'real', nullable: true })
+  @Column({ type: MONEY_COLUMN, nullable: true })
   unitPrice: number | null;
 
   @Column({ type: 'text', nullable: true })

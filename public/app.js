@@ -860,5 +860,11 @@ $('#movement-dialog').addEventListener('close', () => {
 
 loadDashboard().catch((err) => toast(err.message));
 refreshAlertsBadge().catch(() => {});
+api('/info')
+  .then((info) => {
+    $('#demo-banner').hidden = info.persistent;
+    console.info('[Inventario] Instalación', info);
+  })
+  .catch(() => {});
 // Revisa cada 5 minutos por si se generaron las alertas del día (7:00 a. m.).
 setInterval(() => refreshAlertsBadge().catch(() => {}), 5 * 60_000);

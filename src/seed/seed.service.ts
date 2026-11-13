@@ -43,9 +43,16 @@ export class SeedService implements OnModuleInit {
     if (process.env.SEED === 'false') return;
     const count = await this.dataSource.getRepository(Product).count();
     if (count > 0) return;
-    const summary = await this.seed();
-    // Historial de alertas de la última semana, reconstruido a partir de los movimientos.
-    await this.alerts.backfill(ALERT_HISTORY_DAYS);
+    let summary: Awaited<ReturnType<SeedService['seed']>>;
+    try {
+      summary = await this.seed();
+      // Historial de alertas de la última semana, reconstruido a partir de los movimientos.
+      await this.alerts.backfill(ALERT_HISTORY_DAYS);
+    } catch (err) {
+      // En serverless dos instancias pueden arrancar a la vez: si otra ya cargó los datos, seguimos.
+      this.logger.warn(`No se cargaron los datos de prueba: ${(err as Error).message}`);
+      return;
+    }
     this.logger.log(
       `Datos de prueba cargados: ${summary.categories} categorías, ${summary.products} productos, ${summary.movements} movimientos, alertas de ${ALERT_HISTORY_DAYS} días`,
     );

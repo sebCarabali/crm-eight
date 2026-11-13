@@ -13,16 +13,19 @@ export function configureApp(app: NestExpressApplication): void {
   app.useStaticAssets(join(process.cwd(), 'public'));
 }
 
-async function bootstrap() {
-  const app = await NestFactory.create<NestExpressApplication>(AppModule);
-  configureApp(app);
-
+export function setupSwagger(app: NestExpressApplication): void {
   const config = new DocumentBuilder()
     .setTitle('Inventario API')
-    .setDescription('API REST para manejo de inventario: categorías, productos y movimientos de stock')
+    .setDescription('API REST para manejo de inventario: categorías, productos, ventas, compras, caja y alertas')
     .setVersion('1.0')
     .build();
   SwaggerModule.setup('docs', app, SwaggerModule.createDocument(app, config));
+}
+
+async function bootstrap() {
+  const app = await NestFactory.create<NestExpressApplication>(AppModule);
+  configureApp(app);
+  setupSwagger(app);
 
   const port = Number(process.env.PORT) || 3000;
   await app.listen(port);

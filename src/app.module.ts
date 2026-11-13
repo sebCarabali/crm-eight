@@ -1,11 +1,11 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
-import { mkdirSync } from 'fs';
-import { dirname } from 'path';
 import { AlertsModule } from './alerts/alerts.module';
 import { AlertRun, StockAlert } from './alerts/stock-alert.entity';
 import { CategoriesModule } from './categories/categories.module';
 import { Category } from './categories/category.entity';
+import { databaseOptions } from './common/database';
+import { InfoController } from './common/info.controller';
 import { MovementsModule } from './movements/movements.module';
 import { StockMovement } from './movements/stock-movement.entity';
 import { Product } from './products/product.entity';
@@ -13,30 +13,13 @@ import { ProductsModule } from './products/products.module';
 import { SeedModule } from './seed/seed.module';
 
 /**
- * Base de datos SQLite en WebAssembly (sql.js): no requiere módulos nativos,
- * por eso funciona en StackBlitz. Se guarda en data/inventario.sqlite.
- * DB_PATH=:memory: usa una base en memoria (útil para pruebas).
+ * Base de datos: PostgreSQL si hay DATABASE_URL/POSTGRES_URL; si no, SQLite en WebAssembly (sql.js)
+ * en data/inventario.sqlite (funciona en StackBlitz). Ver src/common/database.ts.
  */
-function databaseLocation(): string | undefined {
-  const path = process.env.DB_PATH ?? 'data/inventario.sqlite';
-  if (path === ':memory:') return undefined;
-  mkdirSync(dirname(path), { recursive: true });
-  return path;
-}
-
 @Module({
   imports: [
     TypeOrmModule.forRootAsync({
-      useFactory: () => {
-        const location = databaseLocation();
-        return {
-          type: 'sqljs' as const,
-          location,
-          autoSave: Boolean(location),
-          entities: [Category, Product, StockMovement, StockAlert, AlertRun],
-          synchronize: true,
-        };
-      },
+      useFactory: () => databaseOptions([Category, Product, StockMovement, StockAlert, AlertRun]),
     }),
     CategoriesModule,
     ProductsModule,
@@ -44,5 +27,6 @@ function databaseLocation(): string | undefined {
     AlertsModule,
     SeedModule,
   ],
+  controllers: [InfoController],
 })
 export class AppModule {}

@@ -1,4 +1,15 @@
-import { Body, Controller, Get, Param, ParseIntPipe, Patch, Post, Query } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  Headers,
+  Param,
+  ParseIntPipe,
+  Patch,
+  Post,
+  Query,
+  UnauthorizedException,
+} from '@nestjs/common';
 import { ApiProperty, ApiPropertyOptional, ApiTags } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
 import { IsBoolean, IsInt, IsOptional, Matches, Max, Min } from 'class-validator';
@@ -42,6 +53,20 @@ export class AlertsController {
   @Get('days')
   days(@Query() query: DaysQueryDto) {
     return this.service.days(query.limit);
+  }
+
+  /**
+   * Tarea diaria (Vercel Cron, 7:00 a. m. hora de Colombia): genera las alertas del día si faltan.
+   * Si existe la variable CRON_SECRET, exige el encabezado `Authorization: Bearer <CRON_SECRET>`
+   * (Vercel lo envía automáticamente).
+   */
+  @Get('cron')
+  async cron(@Headers('authorization') auth?: string) {
+    const secret = process.env.CRON_SECRET;
+    if (secret && auth !== `Bearer ${secret}`) throw new UnauthorizedException();
+    await this.service.tick();
+    const today = await this.service.findByDate();
+    return { date: today.date, generatedAt: today.generatedAt, counts: today.counts };
   }
 
   /** Genera (o actualiza) ya mismo las alertas de hoy con el stock actual. */
