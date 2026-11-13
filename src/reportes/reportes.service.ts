@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { BadRequestException, Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { FiltroDto } from '../registros/dto';
@@ -146,6 +146,25 @@ export class ReportesService {
       .sort((a, b) => a.producto.localeCompare(b.producto, 'es'));
   }
 
+  /**
+   * Verifica que haya existencias para vender `cantidad` unidades de `nombre`.
+   * `devolver` = unidades que ya estaban vendidas en la misma fila (al editar una venta) y vuelven al stock.
+   * Lanza un error de inexistencia si no hay unidades o no alcanzan.
+   */
+  async verificarExistencias(nombre: string, cantidad: number, devolver = 0): Promise<void> {
+    const clave = claveProducto(nombre);
+    const producto = (await this.todosLosProductos()).find((p) => claveProducto(p.producto) === clave);
+    const disponible = (producto?.stock ?? 0) + devolver;
+    if (disponible <= 0) {
+      throw new BadRequestException(`Inexistencia: no hay unidades de "${nombre}" en el inventario.`);
+    }
+    if (cantidad > disponible) {
+      throw new BadRequestException(
+        `Existencias insuficientes de "${nombre}": hay ${disponible} y se intentan vender ${cantidad}.`,
+      );
+    }
+  }
+
   /** Nombres normalizados de todos los productos conocidos (compras, ventas y creados). */
   async nombresConocidos(): Promise<Set<string>> {
     const { mostrador, clientes, compras, creados } = await this.todo();
@@ -268,7 +287,12 @@ export class ReportesService {
     const unicos = (valores: string[]) => [...new Set(valores.filter(Boolean))].sort((a, b) => a.localeCompare(b, 'es'));
     const productos = await this.todosLosProductos();
     return {
-      productos: productos.map((p) => ({ producto: p.producto, precioVenta: p.ultimoPrecioVenta, precioCompra: p.ultimoPrecioCompra })),
+      productos: productos.map((p) => ({
+        producto: p.producto,
+        precioVenta: p.ultimoPrecioVenta,
+        precioCompra: p.ultimoPrecioCompra,
+        stock: p.stock,
+      })),
       clientes: unicos(clientes.map((c) => c.cliente)),
       condicionesPago: unicos(['Contado', 'Nequi', 'Transferencia', ...clientes.map((c) => c.condicionesPago)]),
       proveedores: unicos(compras.map((c) => c.proveedor)),

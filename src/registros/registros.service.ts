@@ -1,5 +1,6 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
+import { ReportesService, claveProducto } from '../reportes/reportes.service';
 import { ObjectLiteral, Repository } from 'typeorm';
 import {
   ActualizarCompraDto,
@@ -13,6 +14,26 @@ import {
 import { Compra, VentaCliente, VentaMostrador } from './entidades';
 
 const redondear = (n: number) => Math.round(n * 100) / 100;
+
+/**
+ * Al editar una venta registrada en la app, verifica existencias para el producto y la cantidad nuevos.
+ * Las unidades que la fila ya tenía vendidas del mismo producto vuelven al stock disponible.
+ * Las ventas importadas del Excel no descuentan stock, así que no se verifican.
+ */
+async function verificarEdicion(
+  reportes: ReportesService,
+  actual: { importado: boolean; cantidad: number },
+  nombreActual: string,
+  nombreNuevo: string | undefined,
+  cantidadNueva: number | undefined,
+) {
+  if (actual.importado || (nombreNuevo === undefined && cantidadNueva === undefined)) return;
+  const nombre = nombreNuevo ?? nombreActual;
+  const mismo = claveProducto(nombre) === claveProducto(nombreActual);
+  // Mismo producto sin aumentar la cantidad (p. ej. corregir el precio): no pide unidades nuevas.
+  if (mismo && (cantidadNueva ?? actual.cantidad) <= actual.cantidad) return;
+  await reportes.verificarExistencias(nombre, cantidadNueva ?? actual.cantidad, mismo ? actual.cantidad : 0);
+}
 
 /** Listar / buscar / editar / borrar común a las tres hojas. */
 abstract class Registros<T extends ObjectLiteral & { id: number; cantidad: number; valorTotal: number }> {
@@ -55,16 +76,21 @@ export class VentasMostradorService extends Registros<VentaMostrador> {
   protected readonly campoFecha = 'fecha';
   protected readonly camposTexto = ['producto'];
 
-  constructor(@InjectRepository(VentaMostrador) repo: Repository<VentaMostrador>) {
+  constructor(
+    @InjectRepository(VentaMostrador) repo: Repository<VentaMostrador>,
+    private readonly reportes: ReportesService,
+  ) {
     super(repo);
   }
 
-  crear(dto: CrearVentaMostradorDto) {
+  async crear(dto: CrearVentaMostradorDto) {
+    await this.reportes.verificarExistencias(dto.producto, dto.cantidad);
     return this.repo.save(this.repo.create(this.completar(dto)));
   }
 
   async actualizar(id: number, dto: ActualizarVentaMostradorDto) {
     const actual = await this.obtener(id);
+    await verificarEdicion(this.reportes, actual, actual.producto, dto.producto, dto.cantidad);
     const cambiaValor = dto.cantidad !== undefined || dto.valorUnitario !== undefined;
     const sinPagos = dto.pagoEfectivo === undefined && dto.pagoNequi === undefined;
     const base = { ...actual, ...dto };
@@ -101,16 +127,21 @@ export class VentasClientesService extends Registros<VentaCliente> {
   protected readonly campoFecha = 'fecha';
   protected readonly camposTexto = ['cliente', 'descripcion', 'condicionesPago'];
 
-  constructor(@InjectRepository(VentaCliente) repo: Repository<VentaCliente>) {
+  constructor(
+    @InjectRepository(VentaCliente) repo: Repository<VentaCliente>,
+    private readonly reportes: ReportesService,
+  ) {
     super(repo);
   }
 
-  crear(dto: CrearVentaClienteDto) {
+  async crear(dto: CrearVentaClienteDto) {
+    await this.reportes.verificarExistencias(dto.descripcion, dto.cantidad);
     return this.repo.save(this.repo.create({ ...dto, valorTotal: redondear(dto.cantidad * dto.precioUnitario) }));
   }
 
   async actualizar(id: number, dto: ActualizarVentaClienteDto) {
     const actual = await this.obtener(id);
+    await verificarEdicion(this.reportes, actual, actual.descripcion, dto.descripcion, dto.cantidad);
     Object.assign(actual, dto);
     actual.valorTotal = redondear(actual.cantidad * actual.precioUnitario);
     return this.repo.save(actual);

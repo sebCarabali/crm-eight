@@ -394,6 +394,8 @@ async function abrirForm(tipo, registro) {
     if (fecha) fecha.value = hoy();
   }
   actualizarTotales();
+  if (tipo === 'mostrador') mostrarExistencias(f, 'producto', '#m-stock');
+  if (tipo === 'cliente') mostrarExistencias(f, 'descripcion', '#c-stock');
   $(cfg.dlg).showModal();
 }
 
@@ -453,6 +455,38 @@ function proponerPrecio(input, campo, tipo) {
     }
   });
 }
+/**
+ * Existencias del producto escrito en un formulario de venta. El servidor es quien valida;
+ * esto solo avisa antes de guardar.
+ */
+function mostrarExistencias(form, campo, hintSel) {
+  const hint = $(hintSel);
+  const nombre = form.elements[campo].value.trim();
+  const cantidad = Number(form.elements.cantidad.value || 0);
+  if (!nombre || !state.opciones) {
+    hint.textContent = '';
+    hint.classList.remove('sin');
+    return;
+  }
+  const p = buscarProducto(nombre);
+  const stock = p ? p.stock : 0;
+  const editando = Boolean(form.elements.id.value);
+  if (stock <= 0 && !editando) {
+    hint.textContent = `Inexistencia: no hay unidades de "${nombre}" en el inventario.`;
+    hint.classList.add('sin');
+  } else if (cantidad > stock && !editando) {
+    hint.textContent = `Existencias insuficientes: hay ${num.format(stock)} y se intentan vender ${num.format(cantidad)}.`;
+    hint.classList.add('sin');
+  } else {
+    hint.textContent = `Disponible en inventario: ${num.format(stock)} unidades`;
+    hint.classList.remove('sin');
+  }
+}
+for (const [formSel, campo, hintSel] of [['#form-mostrador', 'producto', '#m-stock'], ['#form-cliente', 'descripcion', '#c-stock']]) {
+  const f = $(formSel);
+  for (const name of [campo, 'cantidad']) f.elements[name].addEventListener('input', () => mostrarExistencias(f, campo, hintSel));
+}
+
 proponerPrecio($('#form-mostrador').elements.producto, 'valorUnitario', 'venta');
 proponerPrecio($('#form-cliente').elements.descripcion, 'precioUnitario', 'venta');
 proponerPrecio($('#form-compra').elements.descripcion, 'precioUnitario', 'compra');

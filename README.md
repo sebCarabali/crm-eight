@@ -25,6 +25,7 @@ Aplicación web para llevar las **ventas**, **compras**, **stock**, **clientes**
 - **Resumen clientes** se calcula igual que las fórmulas del Excel (`COUNTIF` / `SUMIF` sobre "Registro de Ventas") y en el mismo orden.
 - **Stock**: la **Cantidad** de la hoja Inventario es el stock inicial de cada producto. **Comprado** y **Vendido** empiezan en 0 y cuentan solo las compras y ventas registradas en la app; las ventas que vienen del Excel no descuentan del stock (sí cuentan en Ventas, Clientes y Caja). Stock = Cantidad + Comprado − Vendido; puede quedar negativo.
 - Los productos se agrupan por nombre, sin distinguir mayúsculas, tildes ni espacios extra ("Cerdito Alcancía" = "cerdito alcancia").
+- **Inexistencias**: no se puede registrar una venta (de mostrador o a cliente) si el producto no tiene unidades en el inventario: aparece el error *"Inexistencia: no hay unidades de … en el inventario"*. Si hay unidades pero no alcanzan, el error indica cuántas hay. El formulario muestra las unidades disponibles mientras se escribe. Al editar una venta, las unidades que ya tenía cuentan como disponibles; las ventas importadas del Excel no se controlan.
 - **Agregar productos**: en Productos → **+ Nuevo producto**, con nombre y Cantidad (stock inicial). No se permiten nombres repetidos. Los productos creados en la app se pueden editar y eliminar; los que vienen del Excel se ajustan editando sus compras.
 - Las fechas se guardan tal como vienen en el Excel.
 - En toda tabla hay buscador, filtro por fechas, fila de totales, y botones para editar y eliminar.

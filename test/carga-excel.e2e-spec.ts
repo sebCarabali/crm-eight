@@ -91,6 +91,17 @@ describe('Carga de los datos del Excel (e2e)', () => {
     await http().delete(`/api/ventas-mostrador/${venta.body.id}`).expect(204);
   });
 
+  it('controla existencias en ventas nuevas; las ventas del Excel se pueden editar sin control', async () => {
+    const res = await http()
+      .post('/api/ventas-mostrador')
+      .send({ fecha: '2026-11-12', producto: 'Laca', cantidad: 1, valorUnitario: 11500 })
+      .expect(400);
+    expect(res.body.message).toContain('Inexistencia');
+    const importada = (await http().get('/api/ventas-mostrador?q=laca').expect(200)).body[0];
+    await http().patch(`/api/ventas-mostrador/${importada.id}`).send({ cantidad: 2 }).expect(200);
+    await http().patch(`/api/ventas-mostrador/${importada.id}`).send({ cantidad: importada.cantidad }).expect(200);
+  });
+
   it('respeta las fechas del Excel', async () => {
     const mostrador = (await http().get('/api/ventas-mostrador').expect(200)).body;
     expect(mostrador.at(-1).fecha).toBe('2026-07-28');

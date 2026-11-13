@@ -45,6 +45,18 @@ describe('Tienda: ventas, compras, stock, clientes y caja (e2e)', () => {
     expect(res.body).toMatchObject({ producto: 'Cerdito alcancia', valorTotal: 10000, pagoEfectivo: 10000, pagoNequi: 0 });
   });
 
+  it('muestra error de inexistencia si el producto no tiene unidades en el inventario', async () => {
+    const res = await http()
+      .post('/api/ventas-mostrador')
+      .send({ fecha: '2026-07-29', producto: 'Pinturas', cantidad: 1, valorUnitario: 3500 })
+      .expect(400);
+    expect(res.body.message).toBe('Inexistencia: no hay unidades de "Pinturas" en el inventario.');
+  });
+
+  it('crea el producto con existencias para poder venderlo', async () => {
+    await http().post('/api/productos').send({ producto: 'Pinturas', cantidad: 6 }).expect(201);
+  });
+
   it('reparte el pago entre efectivo y Nequi', async () => {
     const res = await http()
       .post('/api/ventas-mostrador')
@@ -79,7 +91,26 @@ describe('Tienda: ventas, compras, stock, clientes y caja (e2e)', () => {
     // comprado 10; vendido 2 (mostrador) + 3 + 1 + 1 (clientes) = 7
     expect(cerdito).toMatchObject({ cantidad: 0, comprado: 10, vendido: 7, stock: 3 });
     const pinturas = res.body.find((p: { producto: string }) => p.producto === 'Pinturas');
-    expect(pinturas).toMatchObject({ cantidad: 0, comprado: 0, vendido: 5, stock: -5 });
+    expect(pinturas).toMatchObject({ cantidad: 6, comprado: 0, vendido: 5, stock: 1 });
+  });
+
+  it('avisa si las existencias no alcanzan (venta de mostrador y a cliente)', async () => {
+    const m = await http()
+      .post('/api/ventas-mostrador')
+      .send({ fecha: '2026-08-01', producto: 'pinturas', cantidad: 2, valorUnitario: 3500 })
+      .expect(400);
+    expect(m.body.message).toBe('Existencias insuficientes de "pinturas": hay 1 y se intentan vender 2.');
+    const c = await http()
+      .post('/api/ventas-clientes')
+      .send({ cliente: 'Ana', fecha: '2026-08-01', condicionesPago: 'Contado', cantidad: 4, descripcion: 'Cerdito Alcancía', precioUnitario: 5000 })
+      .expect(400);
+    expect(c.body.message).toContain('Existencias insuficientes');
+    await http()
+      .post('/api/ventas-clientes')
+      .send({ cliente: 'Ana', fecha: '2026-08-01', condicionesPago: 'Contado', cantidad: 1, descripcion: 'Producto inexistente', precioUnitario: 5000 })
+      .expect(400);
+    // nada se guardó
+    expect((await http().get('/api/clientes/resumen').expect(200)).body.map((r: { cliente: string }) => r.cliente)).not.toContain('Ana');
   });
 
   it('resumen de clientes como en el Excel (COUNTIF / SUMIF)', async () => {
@@ -117,6 +148,13 @@ describe('Tienda: ventas, compras, stock, clientes y caja (e2e)', () => {
   it('edita una venta: recalcula el total y conserva la forma de pago', async () => {
     const res = await http().patch(`/api/ventas-mostrador/${ventaId}`).send({ cantidad: 3 }).expect(200);
     expect(res.body).toMatchObject({ valorTotal: 15000, pagoEfectivo: 15000, pagoNequi: 0 });
+  });
+
+  it('al editar, no deja vender más de lo que hay (cuenta las unidades que ya tenía la venta)', async () => {
+    // Cerdito: stock 2 (+3 ya vendidas en esta fila) → máximo 5
+    await http().patch(`/api/ventas-mostrador/${ventaId}`).send({ cantidad: 6 }).expect(400);
+    await http().patch(`/api/ventas-mostrador/${ventaId}`).send({ cantidad: 5 }).expect(200);
+    await http().patch(`/api/ventas-mostrador/${ventaId}`).send({ cantidad: 3 }).expect(200);
   });
 
   it('elimina registros', async () => {
